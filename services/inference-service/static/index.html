@@ -9,7 +9,7 @@
       h1 { margin-bottom: 8px; }
       .card { background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; margin: 16px 0; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06); }
       .tabs { display: flex; gap: 8px; margin: 20px 0 8px; }
-      .tab-button { width: auto; padding: 10px 16px; border: 1px solid #cbd5e1; border-radius: 999px; background: white; color: #334155; font-weight: 700; cursor: pointer; }
+      .tab-button { width: auto; padding: 10px 16px; border: 1px solid #cbd5e1; border-radius: 999px; background: white; color: #334155; font-weight: 700; cursor: pointer; text-decoration: none; }
       .tab-button.active { background: #2563eb; color: white; border-color: #2563eb; }
       .tab-panel { display: none; }
       .tab-panel.active { display: block; }
@@ -28,8 +28,8 @@
     <p>Use the tabs to call the incident classifier or the support tickets forecast model.</p>
 
     <nav class="tabs" aria-label="Inference tabs">
-      <button class="tab-button active" data-tab="incident" type="button">Incident risk</button>
-      <button class="tab-button" data-tab="support" type="button">Support forecast</button>
+      <a class="tab-button active" data-tab="incident" href="#incident">Incident risk</a>
+      <a class="tab-button" data-tab="support" href="#support">Support forecast</a>
     </nav>
 
     <section id="incident-panel" class="tab-panel active">
@@ -119,13 +119,19 @@
         return inputs;
       }
 
-      for (const button of document.querySelectorAll(".tab-button")) {
-        button.addEventListener("click", () => {
-          for (const item of document.querySelectorAll(".tab-button, .tab-panel")) item.classList.remove("active");
-          button.classList.add("active");
-          document.getElementById(`${button.dataset.tab}-panel`).classList.add("active");
-        });
+      function showTab(tabName) {
+        const selectedTab = tabName === "support" ? "support" : "incident";
+        for (const item of document.querySelectorAll(".tab-button, .tab-panel")) item.classList.remove("active");
+        document.querySelector(`[data-tab="${selectedTab}"]`).classList.add("active");
+        document.getElementById(`${selectedTab}-panel`).classList.add("active");
       }
+
+      for (const link of document.querySelectorAll(".tab-button")) {
+        link.addEventListener("click", () => showTab(link.dataset.tab));
+      }
+
+      window.addEventListener("hashchange", () => showTab(window.location.hash.replace("#", "")));
+      showTab(window.location.hash.replace("#", ""));
 
       document.getElementById("prediction-form").addEventListener("submit", async (event) => {
         event.preventDefault();
