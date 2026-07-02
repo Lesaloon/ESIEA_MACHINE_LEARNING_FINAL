@@ -1,0 +1,27 @@
+{
+  "target": "incident_next_7d",
+  "problem_type": "binary_classification",
+  "main_metric": "average_precision",
+  "business_metrics": [
+    "top_50_capture_rate",
+    "top_100_capture_rate",
+    "top_250_capture_rate",
+    "top_500_capture_rate"
+  ],
+  "best_model": "extra_trees",
+  "best_params": {
+    "model__max_depth": 24,
+    "model__max_features": 1.0,
+    "model__min_samples_leaf": 15,
+    "model__min_samples_split": 12,
+    "model__n_estimators": 251,
+    "reducer": "passthrough"
+  },
+  "best_model_path": "experiments/part1_incident_prediction/runs_v2/20260702_142612/best_incident_model_v2.joblib",
+  "train_rows": 3000,
+  "test_rows": 15860,
+  "train_positive_rate": 0.026,
+  "test_positive_rate": 0.01197982345523329,
+  "metrics_path": "experiments/part1_incident_prediction/runs_v2/20260702_142612/benchmark_metrics_v2.csv",
+  "notes": "Second experiment adds historical server features and tunes feature reducers including SelectKBest and PCA."
+}

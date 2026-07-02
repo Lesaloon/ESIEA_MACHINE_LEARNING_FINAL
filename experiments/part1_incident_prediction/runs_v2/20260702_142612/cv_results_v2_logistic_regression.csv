@@ -1,0 +1,2 @@
+mean_fit_time,std_fit_time,mean_score_time,std_score_time,param_model__C,param_reducer,params,split0_test_score,split1_test_score,split2_test_score,mean_test_score,std_test_score,rank_test_score
+0.025646130243937176,0.0022209898600770764,0.004867712656656901,0.00012842573149469258,0.0745934328572655,"PCA(n_components=0.95, random_state=42)","{'model__C': np.float64(0.0745934328572655), 'reducer': PCA(n_components=0.95, random_state=42)}",0.049650237048286895,0.06925449266870772,0.08625443146454342,0.06838638706051269,0.014956202007328178,1

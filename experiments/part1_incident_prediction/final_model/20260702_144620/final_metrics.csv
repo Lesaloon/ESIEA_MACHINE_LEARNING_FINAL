@@ -1,0 +1,2 @@
+average_precision,roc_auc,best_threshold,precision,recall,f1,best_cv_average_precision,best_params
+0.11219111111537369,0.804664629026299,0.3049110634041033,0.1715686274509804,0.3684210526315789,0.23411371237458195,0.11515321783444378,"{'model__max_depth': '24', 'model__max_features': '0.9', 'model__min_samples_leaf': '11', 'model__min_samples_split': '20', 'model__n_estimators': '402', 'selector__k': '80'}"

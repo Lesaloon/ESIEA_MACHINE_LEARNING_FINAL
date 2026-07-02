@@ -1,0 +1,48 @@
+2026-07-02 14:12:23 | INFO | Incident prediction experiment started
+2026-07-02 14:12:23 | INFO | Run directory: experiments/part1_incident_prediction/runs/20260702_141223
+2026-07-02 14:12:23 | INFO | Arguments: {'data_path': PosixPath('/home/lesaloon/Work/ESIEA_MACHINE_LEARNING_FINAL/data/processed/incident_dataset.csv'), 'test_start_date': '2026-03-01', 'n_iter': 1, 'cv_splits': 3, 'n_jobs': -1, 'max_train_rows': 3000}
+2026-07-02 14:12:23 | INFO | Loading dataset from data/processed/incident_dataset.csv
+2026-07-02 14:12:23 | INFO | Dataset shape: 74250 rows, 34 columns
+2026-07-02 14:12:23 | INFO | Date range: 2026-01-01 -> 2026-03-16
+2026-07-02 14:12:23 | INFO | Target positive rate: 0.0220
+2026-07-02 14:12:23 | INFO | Missing values: 0
+2026-07-02 14:12:23 | INFO | Duplicate rows: 0
+2026-07-02 14:12:23 | INFO | Using only the latest 3000 training rows for faster experimentation
+2026-07-02 14:12:23 | INFO | Temporal split: train < 2026-03-01, test >= 2026-03-01
+2026-07-02 14:12:23 | INFO | Train shape: (3000, 34) | positive rate: 0.0260
+2026-07-02 14:12:23 | INFO | Test shape: (15860, 34) | positive rate: 0.0120
+2026-07-02 14:12:23 | INFO | Numeric features (25): ['cpu_cores', 'ram_gb', 'disk_tb', 'age_days', 'has_gpu', 'is_managed', 'cpu_util_pct', 'ram_util_pct', 'disk_util_pct', 'net_in_gb', 'net_out_gb', 'temperature_c', 'backup_success', 'scheduled_maintenance', 'avg_rack_temperature_c', 'power_usage_mw', 'network_latency_ms', 'support_tickets', 'capacity_used_pct', 'contract_months', 'tenure_days', 'monthly_spend_eur', 'day_of_week', 'day_of_month', 'days_since_start']
+2026-07-02 14:12:23 | INFO | Categorical features (6): ['server_type', 'region', 'os_family', 'segment', 'country', 'support_plan']
+2026-07-02 14:12:23 | INFO | Training baseline DummyClassifier(strategy='prior')
+2026-07-02 14:12:24 | INFO | dummy_prior test metrics | AP=0.0120 ROC-AUC=0.5000 F1+=0.0000 Recall+=0.0000 Precision+=0.0000
+2026-07-02 14:12:24 | INFO | Starting RandomizedSearchCV for logistic_regression
+2026-07-02 14:12:24 | INFO | Finished logistic_regression in 0.7s
+2026-07-02 14:12:24 | INFO | logistic_regression best CV average_precision: 0.0545
+2026-07-02 14:12:24 | INFO | logistic_regression best params: {'model__C': np.float64(0.0745934328572655)}
+2026-07-02 14:12:24 | INFO | logistic_regression test metrics | AP=0.0166 ROC-AUC=0.6335 F1+=0.0302 Recall+=0.2579 Precision+=0.0160
+2026-07-02 14:12:24 | INFO | Starting RandomizedSearchCV for random_forest
+2026-07-02 14:12:26 | INFO | Finished random_forest in 1.5s
+2026-07-02 14:12:26 | INFO | random_forest best CV average_precision: 0.2034
+2026-07-02 14:12:26 | INFO | random_forest best params: {'model__max_depth': 14, 'model__max_features': 'sqrt', 'model__min_samples_leaf': 11, 'model__min_samples_split': 9, 'model__n_estimators': 338}
+2026-07-02 14:12:26 | INFO | random_forest test metrics | AP=0.0939 ROC-AUC=0.7450 F1+=0.0103 Recall+=0.0053 Precision+=0.2500
+2026-07-02 14:12:26 | INFO | Starting RandomizedSearchCV for extra_trees
+2026-07-02 14:12:27 | INFO | Finished extra_trees in 1.0s
+2026-07-02 14:12:27 | INFO | extra_trees best CV average_precision: 0.2113
+2026-07-02 14:12:27 | INFO | extra_trees best params: {'model__max_depth': 14, 'model__max_features': 'sqrt', 'model__min_samples_leaf': 11, 'model__min_samples_split': 9, 'model__n_estimators': 338}
+2026-07-02 14:12:27 | INFO | extra_trees test metrics | AP=0.1311 ROC-AUC=0.8004 F1+=0.2563 Recall+=0.3737 Precision+=0.1951
+2026-07-02 14:12:27 | INFO | Starting RandomizedSearchCV for hist_gradient_boosting
+2026-07-02 14:12:28 | INFO | Finished hist_gradient_boosting in 0.9s
+2026-07-02 14:12:28 | INFO | hist_gradient_boosting best CV average_precision: 0.2019
+2026-07-02 14:12:28 | INFO | hist_gradient_boosting best params: {'model__l2_regularization': np.float64(0.3745401188473625), 'model__learning_rate': np.float64(0.2133249073808361), 'model__max_iter': 186, 'model__max_leaf_nodes': 22, 'model__min_samples_leaf': 70}
+2026-07-02 14:12:28 | INFO | hist_gradient_boosting test metrics | AP=0.1109 ROC-AUC=0.7724 F1+=0.0729 Recall+=0.0474 Precision+=0.1579
+2026-07-02 14:12:28 | INFO | Benchmark ranking:
+2026-07-02 14:12:28 | INFO | 
+                 model  accuracy  precision_positive  recall_positive  f1_positive  roc_auc  average_precision  best_cv_average_precision  training_seconds                                                                                                                                                                      best_params
+           extra_trees  0.974023            0.195055         0.373684     0.256318 0.800373           0.131121                   0.211323          0.972524                                {'model__max_depth': 14, 'model__max_features': 'sqrt', 'model__min_samples_leaf': 11, 'model__min_samples_split': 9, 'model__n_estimators': 338}
+hist_gradient_boosting  0.985561            0.157895         0.047368     0.072874 0.772365           0.110912                   0.201892          0.888667 {'model__l2_regularization': 0.3745401188473625, 'model__learning_rate': 0.2133249073808361, 'model__max_iter': 186, 'model__max_leaf_nodes': 22, 'model__min_samples_leaf': 70}
+         random_forest  0.987894            0.250000         0.005263     0.010309 0.745027           0.093938                   0.203395          1.457915                                {'model__max_depth': 14, 'model__max_features': 'sqrt', 'model__min_samples_leaf': 11, 'model__min_samples_split': 9, 'model__n_estimators': 338}
+   logistic_regression  0.801387            0.016024         0.257895     0.030172 0.633530           0.016583                   0.054457          0.680055                                                                                                                                                 {'model__C': 0.0745934328572655}
+           dummy_prior  0.988020            0.000000         0.000000     0.000000 0.500000           0.011980                        NaN               NaN                                                                                                                                                                              NaN
+2026-07-02 14:12:28 | INFO | Best model: extra_trees
+2026-07-02 14:12:28 | INFO | Saved best model to experiments/part1_incident_prediction/runs/20260702_141223/best_incident_model.joblib
+2026-07-02 14:12:28 | INFO | Incident prediction experiment finished

@@ -1,0 +1,2 @@
+mean_fit_time,std_fit_time,mean_score_time,std_score_time,param_model__C,param_model__l1_ratio,params,split0_test_score,split1_test_score,split2_test_score,mean_test_score,std_test_score,rank_test_score
+1.1284596920013428,0.4502986612617553,0.004908641179402669,0.00030060724477553143,0.0745934328572655,1.0,"{'model__C': np.float64(0.0745934328572655), 'model__l1_ratio': 1.0}",0.039545774604918524,0.03893438399035554,0.09040304223275891,0.05629440027601099,0.024119743527120575,1

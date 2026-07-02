@@ -1,0 +1,5 @@
+model,top_k_per_day,selected_total,captured_incidents,total_incidents,capture_rate,precision_at_k,mean_daily_capture_rate
+hist_gradient_boosting,50,800,80,190,0.42105263157894735,0.1,0.32040591675266594
+hist_gradient_boosting,100,1600,99,190,0.5210526315789473,0.061875,0.39637091838330224
+hist_gradient_boosting,250,4000,129,190,0.6789473684210526,0.03225,0.5342308087509325
+hist_gradient_boosting,500,8000,155,190,0.8157894736842105,0.019375,0.6949102926657107

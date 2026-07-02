@@ -1,0 +1,13 @@
+{
+  "target": "incident_next_7d",
+  "problem_type": "binary_classification",
+  "selection_metric": "average_precision on temporal test set",
+  "best_model": "extra_trees",
+  "best_model_path": "experiments/part1_incident_prediction/runs/20260702_141223/best_incident_model.joblib",
+  "test_start_date": "2026-03-01",
+  "train_rows": 3000,
+  "test_rows": 15860,
+  "train_positive_rate": 0.026,
+  "test_positive_rate": 0.01197982345523329,
+  "metrics_path": "experiments/part1_incident_prediction/runs/20260702_141223/benchmark_metrics.csv"
+}

@@ -1,0 +1,18 @@
+2026-07-02 14:46:20,261 | INFO | Training final RandomForest incident model
+2026-07-02 14:46:20,261 | INFO | Loading data/processed/incident_dataset.csv
+2026-07-02 14:46:20,342 | INFO | Raw shape: (74250, 34)
+2026-07-02 14:46:20,342 | INFO | Target positive rate: 0.0220
+2026-07-02 14:46:21,091 | INFO | Shape after feature engineering: (74250, 84)
+2026-07-02 14:46:21,133 | INFO | Train: (58390, 81) | positives: 0.0247
+2026-07-02 14:46:21,133 | INFO | Test: (15860, 81) | positives: 0.0120
+2026-07-02 14:46:21,134 | INFO | Starting RandomizedSearchCV with 2 iterations
+2026-07-02 14:47:28,572 | INFO | Best CV average_precision: 0.1152
+2026-07-02 14:47:28,572 | INFO | Best params: {'model__max_depth': 24, 'model__max_features': 0.9, 'model__min_samples_leaf': 11, 'model__min_samples_split': 20, 'model__n_estimators': 402, 'selector__k': 80}
+2026-07-02 14:47:28,811 | INFO | Final metrics: {'average_precision': 0.11219111111537369, 'roc_auc': 0.804664629026299, 'best_threshold': 0.3049110634041033, 'precision': 0.1715686274509804, 'recall': 0.3684210526315789, 'f1': 0.23411371237458195, 'best_cv_average_precision': 0.11515321783444378, 'best_params': {'model__max_depth': '24', 'model__max_features': '0.9', 'model__min_samples_leaf': '11', 'model__min_samples_split': '20', 'model__n_estimators': '402', 'selector__k': '80'}}
+2026-07-02 14:47:28,812 | INFO | Top-K metrics:
+ top_k_per_day  selected_total  captured_incidents  total_incidents  capture_rate  precision_at_k
+            50             800                  89              190      0.468421        0.111250
+           100            1600                 119              190      0.626316        0.074375
+           250            4000                 141              190      0.742105        0.035250
+           500            8000                 159              190      0.836842        0.019875
+2026-07-02 14:47:28,812 | INFO | Saved final model to experiments/part1_incident_prediction/final_model/20260702_144620/final_random_forest_model.joblib

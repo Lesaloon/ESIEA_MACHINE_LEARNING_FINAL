@@ -1,0 +1,17 @@
+fichier,colonne,description
+customers.csv,customer_id,Identifiant client
+customers.csv,segment,Segment commercial du client
+customers.csv,monthly_spend_eur,Dépense mensuelle estimée
+servers.csv,server_id,Identifiant serveur
+servers.csv,server_type,"Type d'offre : vps, dédié, storage, gpu, database"
+servers.csv,age_days,Âge matériel ou logique du serveur
+daily_server_usage.csv,cpu_util_pct,Utilisation CPU journalière en pourcentage
+daily_server_usage.csv,ram_util_pct,Utilisation RAM journalière en pourcentage
+daily_server_usage.csv,disk_util_pct,Utilisation disque en pourcentage
+daily_server_usage.csv,temperature_c,Température serveur estimée
+technical_region_metrics.csv,support_tickets,Nombre de tickets support région/jour
+technical_region_metrics.csv,network_latency_ms,Latence réseau moyenne région/jour
+incidents.csv,severity,Gravité de la panne
+incidents.csv,duration_minutes,Durée de l'incident
+ml_training_dataset.csv,incident_next_7d,Cible classification : incident observé dans les 7 prochaines observations du serveur
+ml_training_dataset.csv,overload_anomaly,Indicateur synthétique d'anomalie de surcharge

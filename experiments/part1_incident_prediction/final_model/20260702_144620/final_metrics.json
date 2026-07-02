@@ -1,0 +1,17 @@
+{
+  "average_precision": 0.11219111111537369,
+  "roc_auc": 0.804664629026299,
+  "best_threshold": 0.3049110634041033,
+  "precision": 0.1715686274509804,
+  "recall": 0.3684210526315789,
+  "f1": 0.23411371237458195,
+  "best_cv_average_precision": 0.11515321783444378,
+  "best_params": {
+    "model__max_depth": "24",
+    "model__max_features": "0.9",
+    "model__min_samples_leaf": "11",
+    "model__min_samples_split": "20",
+    "model__n_estimators": "402",
+    "selector__k": "80"
+  }
+}

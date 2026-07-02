@@ -1,0 +1,47 @@
+2026-07-02 14:26:12 | INFO | Incident prediction second experiment started
+2026-07-02 14:26:12 | INFO | Run directory: experiments/part1_incident_prediction/runs_v2/20260702_142612
+2026-07-02 14:26:12 | INFO | Arguments: {'data_path': PosixPath('/home/lesaloon/Work/ESIEA_MACHINE_LEARNING_FINAL/data/processed/incident_dataset.csv'), 'test_start_date': '2026-03-01', 'n_iter': 1, 'cv_splits': 3, 'n_jobs': -1, 'max_train_rows': 3000, 'top_k': [50, 100, 250, 500]}
+2026-07-02 14:26:12 | INFO | Loading dataset from data/processed/incident_dataset.csv
+2026-07-02 14:26:12 | INFO | Dataset shape: (74250, 34)
+2026-07-02 14:26:12 | INFO | Date range: 2026-01-01 -> 2026-03-16
+2026-07-02 14:26:12 | INFO | Servers: 2200
+2026-07-02 14:26:12 | INFO | Target positive rate: 0.0220
+2026-07-02 14:26:12 | INFO | Missing values: 0
+2026-07-02 14:26:12 | INFO | Duplicate rows: 0
+2026-07-02 14:26:12 | INFO | Adding historical server-level features
+2026-07-02 14:26:13 | INFO | Created 39 engineered features
+2026-07-02 14:26:13 | INFO | Shape after feature engineering: (74250, 84)
+2026-07-02 14:26:13 | INFO | Using latest 3000 training rows for faster experimentation
+2026-07-02 14:26:13 | INFO | Train shape: (3000, 84) | positive rate: 0.0260
+2026-07-02 14:26:13 | INFO | Test shape: (15860, 84) | positive rate: 0.0120
+2026-07-02 14:26:13 | INFO | Numeric features: 75
+2026-07-02 14:26:13 | INFO | Categorical features: ['server_type', 'region', 'os_family', 'segment', 'country', 'support_plan']
+2026-07-02 14:26:13 | INFO | Starting v2 RandomizedSearchCV for logistic_regression
+2026-07-02 14:26:14 | INFO | Finished logistic_regression in 0.9s
+2026-07-02 14:26:14 | INFO | logistic_regression best CV average_precision: 0.0684
+2026-07-02 14:26:14 | INFO | logistic_regression best params: {'model__C': np.float64(0.0745934328572655), 'reducer': PCA(n_components=0.95, random_state=42)}
+2026-07-02 14:26:14 | INFO | logistic_regression | AP=0.0157 ROC-AUC=0.5835 F1@best=0.0348 Recall@best=0.2158 Precision@best=0.0189
+2026-07-02 14:26:14 | INFO | Starting v2 RandomizedSearchCV for random_forest
+2026-07-02 14:26:16 | INFO | Finished random_forest in 1.8s
+2026-07-02 14:26:16 | INFO | random_forest best CV average_precision: 0.0843
+2026-07-02 14:26:16 | INFO | random_forest best params: {'model__max_depth': 24, 'model__max_features': 1.0, 'model__min_samples_leaf': 15, 'model__min_samples_split': 12, 'model__n_estimators': 251, 'reducer': 'passthrough'}
+2026-07-02 14:26:16 | INFO | random_forest | AP=0.0515 ROC-AUC=0.6773 F1@best=0.1154 Recall@best=0.1421 Precision@best=0.0971
+2026-07-02 14:26:16 | INFO | Starting v2 RandomizedSearchCV for extra_trees
+2026-07-02 14:26:17 | INFO | Finished extra_trees in 1.1s
+2026-07-02 14:26:17 | INFO | extra_trees best CV average_precision: 0.1806
+2026-07-02 14:26:17 | INFO | extra_trees best params: {'model__max_depth': 24, 'model__max_features': 1.0, 'model__min_samples_leaf': 15, 'model__min_samples_split': 12, 'model__n_estimators': 251, 'reducer': 'passthrough'}
+2026-07-02 14:26:17 | INFO | extra_trees | AP=0.1272 ROC-AUC=0.7843 F1@best=0.2108 Recall@best=0.1842 Precision@best=0.2465
+2026-07-02 14:26:18 | INFO | Starting v2 RandomizedSearchCV for hist_gradient_boosting
+2026-07-02 14:26:19 | INFO | Finished hist_gradient_boosting in 1.5s
+2026-07-02 14:26:19 | INFO | hist_gradient_boosting best CV average_precision: 0.1335
+2026-07-02 14:26:19 | INFO | hist_gradient_boosting best params: {'model__l2_regularization': np.float64(0.5618101782710437), 'model__learning_rate': np.float64(0.17254716573280354), 'model__max_iter': 206, 'model__max_leaf_nodes': 75, 'model__min_samples_leaf': 30, 'reducer': SelectKBest(k=80)}
+2026-07-02 14:26:19 | INFO | hist_gradient_boosting | AP=0.1058 ROC-AUC=0.7407 F1@best=0.1944 Recall@best=0.2211 Precision@best=0.1736
+2026-07-02 14:26:19 | INFO | Benchmark ranking:
+                 model  precision_positive_default  recall_positive_default  f1_positive_default  roc_auc  average_precision  best_threshold  threshold_precision_positive  threshold_recall_positive  threshold_f1_positive  top_50_capture_rate  top_50_precision  top_100_capture_rate  top_100_precision  top_250_capture_rate  top_250_precision  top_500_capture_rate  top_500_precision  best_cv_average_precision  training_seconds                                                                                                                                                                                                     best_params
+           extra_trees                    0.287234                 0.142105             0.190141 0.784282           0.127202        0.475190                      0.246479                   0.184211               0.210843             0.357895           0.08500              0.515789           0.061250              0.663158            0.03150              0.821053           0.019500                   0.180633          1.083630                                       {'model__max_depth': 24, 'model__max_features': 1.0, 'model__min_samples_leaf': 15, 'model__min_samples_split': 12, 'model__n_estimators': 251, 'reducer': 'passthrough'}
+hist_gradient_boosting                    0.500000                 0.005263             0.010417 0.740699           0.105774        0.004806                      0.173554                   0.221053               0.194444             0.352632           0.08375              0.457895           0.054375              0.600000            0.02850              0.784211           0.018625                   0.133506          1.544420 {'model__l2_regularization': 0.5618101782710437, 'model__learning_rate': 0.17254716573280354, 'model__max_iter': 206, 'model__max_leaf_nodes': 75, 'model__min_samples_leaf': 30, 'reducer': SelectKBest(k=80)}
+         random_forest                    0.000000                 0.000000             0.000000 0.677308           0.051475        0.263638                      0.097122                   0.142105               0.115385             0.189474           0.04500              0.321053           0.038125              0.521053            0.02475              0.726316           0.017250                   0.084294          1.755094                                       {'model__max_depth': 24, 'model__max_features': 1.0, 'model__min_samples_leaf': 15, 'model__min_samples_split': 12, 'model__n_estimators': 251, 'reducer': 'passthrough'}
+   logistic_regression                    0.018369                 0.215789             0.033856 0.583458           0.015671        0.509019                      0.018946                   0.215789               0.034834             0.089474           0.02125              0.163158           0.019375              0.347368            0.01650              0.636842           0.015125                   0.068386          0.917302                                                                                                                            {'model__C': 0.0745934328572655, 'reducer': PCA(n_components=0.95, random_state=42)}
+2026-07-02 14:26:19 | INFO | Best model: extra_trees
+2026-07-02 14:26:19 | INFO | Saved best model to experiments/part1_incident_prediction/runs_v2/20260702_142612/best_incident_model_v2.joblib
+2026-07-02 14:26:19 | INFO | Incident prediction second experiment finished

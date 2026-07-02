@@ -1,0 +1,9 @@
+{
+  "model": "RandomForestClassifier",
+  "model_path": "experiments/part1_incident_prediction/final_model/20260702_144620/final_random_forest_model.joblib",
+  "metrics_path": "experiments/part1_incident_prediction/final_model/20260702_144620/final_metrics.json",
+  "topk_path": "experiments/part1_incident_prediction/final_model/20260702_144620/topk_metrics.csv",
+  "train_rows": 58390,
+  "test_rows": 15860,
+  "test_positive_rate": 0.01197982345523329
+}
