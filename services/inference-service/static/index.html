@@ -3,70 +3,104 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Incident Risk Inference</title>
+    <title>ML Inference</title>
     <style>
-      body { font-family: Arial, sans-serif; max-width: 980px; margin: 32px auto; padding: 0 16px; background: #f6f7fb; color: #1f2937; }
+      body { font-family: Arial, sans-serif; max-width: 1040px; margin: 32px auto; padding: 0 16px; background: #f6f7fb; color: #1f2937; }
       h1 { margin-bottom: 8px; }
       .card { background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; margin: 16px 0; box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06); }
+      .tabs { display: flex; gap: 8px; margin: 20px 0 8px; }
+      .tab-button { width: auto; padding: 10px 16px; border: 1px solid #cbd5e1; border-radius: 999px; background: white; color: #334155; font-weight: 700; cursor: pointer; }
+      .tab-button.active { background: #2563eb; color: white; border-color: #2563eb; }
+      .tab-panel { display: none; }
+      .tab-panel.active { display: block; }
       form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
       label { display: grid; gap: 4px; font-size: 13px; font-weight: 600; }
       input, select { padding: 9px; border: 1px solid #cbd5e1; border-radius: 8px; font: inherit; }
-      button { grid-column: 1 / -1; padding: 12px; border: 0; border-radius: 8px; background: #2563eb; color: white; font-weight: 700; cursor: pointer; }
-      button:hover { background: #1d4ed8; }
+      button[type="submit"], .example-button { grid-column: 1 / -1; padding: 12px; border: 0; border-radius: 8px; background: #2563eb; color: white; font-weight: 700; cursor: pointer; }
+      button[type="submit"]:hover, .example-button:hover { background: #1d4ed8; }
       pre { white-space: pre-wrap; background: #0f172a; color: #d1fae5; padding: 16px; border-radius: 10px; overflow-x: auto; }
       .result { font-size: 20px; font-weight: 700; }
-      @media (max-width: 760px) { form { grid-template-columns: 1fr; } }
+      @media (max-width: 760px) { form { grid-template-columns: 1fr; } .tabs { flex-direction: column; } }
     </style>
   </head>
   <body>
-    <h1>Incident Risk Inference</h1>
-    <p>Simple UI to call <code>/predict</code> with one server observation.</p>
+    <h1>ML Inference</h1>
+    <p>Use the tabs to call the incident classifier or the support tickets forecast model.</p>
 
-    <section class="card">
-      <button id="risky-example" type="button">Fill risky example</button>
-      <form id="prediction-form">
-        <label>Date <input name="date" value="2026-03-17" /></label>
-        <label>Server ID <input name="server_id" value="S000000" /></label>
-        <label>Server Type
-          <select name="server_type"><option>vps</option><option>dedicated</option><option>gpu</option><option>storage</option><option>database</option></select>
-        </label>
-        <label>Region <select name="region"><option>waw</option><option>rbx</option><option>sbg</option><option>bhs</option><option>gra</option><option>lim</option><option>eri</option></select></label>
-        <label>OS <select name="os_family"><option>linux</option><option>windows</option><option>managed</option></select></label>
-        <label>Segment <select name="segment"><option>startup</option><option>sme</option><option>enterprise</option><option>public_sector</option><option>reseller</option></select></label>
-        <label>Country <select name="country"><option>FR</option><option>DE</option><option>UK</option><option>BE</option><option>ES</option></select></label>
-        <label>Support Plan <select name="support_plan"><option>basic</option><option>standard</option><option>premium</option><option>critical</option></select></label>
+    <nav class="tabs" aria-label="Inference tabs">
+      <button class="tab-button active" data-tab="incident" type="button">Incident risk</button>
+      <button class="tab-button" data-tab="support" type="button">Support forecast</button>
+    </nav>
 
-        <label>CPU Cores <input name="cpu_cores" type="number" value="8" /></label>
-        <label>RAM GB <input name="ram_gb" type="number" value="16" /></label>
-        <label>Disk TB <input name="disk_tb" type="number" step="0.01" value="2.0" /></label>
-        <label>Age Days <input name="age_days" type="number" value="1339" /></label>
-        <label>Has GPU <input name="has_gpu" type="number" min="0" max="1" value="0" /></label>
-        <label>Managed <input name="is_managed" type="number" min="0" max="1" value="0" /></label>
+    <section id="incident-panel" class="tab-panel active">
+      <div class="card">
+        <button id="risky-example" class="example-button" type="button">Fill risky example</button>
+        <form id="prediction-form">
+          <label>Date <input name="date" value="2026-03-17" /></label>
+          <label>Server ID <input name="server_id" value="S000000" /></label>
+          <label>Server Type
+            <select name="server_type"><option>vps</option><option>dedicated</option><option>gpu</option><option>storage</option><option>database</option></select>
+          </label>
+          <label>Region <select name="region"><option>waw</option><option>rbx</option><option>sbg</option><option>bhs</option><option>gra</option><option>lim</option><option>eri</option></select></label>
+          <label>OS <select name="os_family"><option>linux</option><option>windows</option><option>managed</option></select></label>
+          <label>Segment <select name="segment"><option>startup</option><option>sme</option><option>enterprise</option><option>public_sector</option><option>reseller</option></select></label>
+          <label>Country <select name="country"><option>FR</option><option>DE</option><option>UK</option><option>BE</option><option>ES</option></select></label>
+          <label>Support Plan <select name="support_plan"><option>basic</option><option>standard</option><option>premium</option><option>critical</option></select></label>
 
-        <label>CPU % <input name="cpu_util_pct" type="number" step="0.01" value="82.84" /></label>
-        <label>RAM % <input name="ram_util_pct" type="number" step="0.01" value="46.65" /></label>
-        <label>Disk % <input name="disk_util_pct" type="number" step="0.01" value="28.8" /></label>
-        <label>Net In GB <input name="net_in_gb" type="number" step="0.01" value="249.31" /></label>
-        <label>Net Out GB <input name="net_out_gb" type="number" step="0.01" value="191.95" /></label>
-        <label>Temperature C <input name="temperature_c" type="number" step="0.01" value="63.74" /></label>
-        <label>Backup Success <input name="backup_success" type="number" min="0" max="1" value="1" /></label>
-        <label>Maintenance <input name="scheduled_maintenance" type="number" min="0" max="1" value="0" /></label>
-        <label>Rack Temp C <input name="avg_rack_temperature_c" type="number" step="0.01" value="53.59" /></label>
-        <label>Power MW <input name="power_usage_mw" type="number" step="0.001" value="0.65" /></label>
-        <label>Latency MS <input name="network_latency_ms" type="number" step="0.01" value="23.24" /></label>
-        <label>Support Tickets <input name="support_tickets" type="number" value="5" /></label>
-        <label>Capacity % <input name="capacity_used_pct" type="number" step="0.01" value="66.77" /></label>
-        <label>Contract Months <input name="contract_months" type="number" value="36" /></label>
-        <label>Tenure Days <input name="tenure_days" type="number" value="1197" /></label>
-        <label>Monthly Spend EUR <input name="monthly_spend_eur" type="number" step="0.01" value="130.34" /></label>
+          <label>CPU Cores <input name="cpu_cores" type="number" value="8" /></label>
+          <label>RAM GB <input name="ram_gb" type="number" value="16" /></label>
+          <label>Disk TB <input name="disk_tb" type="number" step="0.01" value="2.0" /></label>
+          <label>Age Days <input name="age_days" type="number" value="1339" /></label>
+          <label>Has GPU <input name="has_gpu" type="number" min="0" max="1" value="0" /></label>
+          <label>Managed <input name="is_managed" type="number" min="0" max="1" value="0" /></label>
 
-        <button type="submit">Run inference</button>
-      </form>
+          <label>CPU % <input name="cpu_util_pct" type="number" step="0.01" value="82.84" /></label>
+          <label>RAM % <input name="ram_util_pct" type="number" step="0.01" value="46.65" /></label>
+          <label>Disk % <input name="disk_util_pct" type="number" step="0.01" value="28.8" /></label>
+          <label>Net In GB <input name="net_in_gb" type="number" step="0.01" value="249.31" /></label>
+          <label>Net Out GB <input name="net_out_gb" type="number" step="0.01" value="191.95" /></label>
+          <label>Temperature C <input name="temperature_c" type="number" step="0.01" value="63.74" /></label>
+          <label>Backup Success <input name="backup_success" type="number" min="0" max="1" value="1" /></label>
+          <label>Maintenance <input name="scheduled_maintenance" type="number" min="0" max="1" value="0" /></label>
+          <label>Rack Temp C <input name="avg_rack_temperature_c" type="number" step="0.01" value="53.59" /></label>
+          <label>Power MW <input name="power_usage_mw" type="number" step="0.001" value="0.65" /></label>
+          <label>Latency MS <input name="network_latency_ms" type="number" step="0.01" value="23.24" /></label>
+          <label>Support Tickets <input name="support_tickets" type="number" value="5" /></label>
+          <label>Capacity % <input name="capacity_used_pct" type="number" step="0.01" value="66.77" /></label>
+          <label>Contract Months <input name="contract_months" type="number" value="36" /></label>
+          <label>Tenure Days <input name="tenure_days" type="number" value="1197" /></label>
+          <label>Monthly Spend EUR <input name="monthly_spend_eur" type="number" step="0.01" value="130.34" /></label>
+
+          <button type="submit">Run incident inference</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <div id="summary" class="result">No incident prediction yet.</div>
+        <pre id="output"></pre>
+      </div>
     </section>
 
-    <section class="card">
-      <div id="summary" class="result">No prediction yet.</div>
-      <pre id="output"></pre>
+    <section id="support-panel" class="tab-panel">
+      <div class="card">
+        <form id="support-form">
+          <label>Date <input name="date" value="2026-03-17" /></label>
+          <label>Region <select name="region"><option>waw</option><option>rbx</option><option>sbg</option><option>bhs</option><option>gra</option><option>lim</option><option>eri</option></select></label>
+          <label>Maintenance <input name="scheduled_maintenance" type="number" min="0" max="1" value="0" /></label>
+          <label>Rack Temp C <input name="avg_rack_temperature_c" type="number" step="0.01" value="53.59" /></label>
+          <label>Power MW <input name="power_usage_mw" type="number" step="0.001" value="0.65" /></label>
+          <label>Latency MS <input name="network_latency_ms" type="number" step="0.01" value="23.24" /></label>
+          <label>Capacity % <input name="capacity_used_pct" type="number" step="0.01" value="66.77" /></label>
+          <label>Recent Tickets <input name="recent_support_tickets" type="number" step="0.01" value="5" /></label>
+
+          <button type="submit">Forecast support tickets</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <div id="support-summary" class="result">No support forecast yet.</div>
+        <pre id="support-output"></pre>
+      </div>
     </section>
 
     <script>
@@ -74,17 +108,28 @@
         "cpu_cores", "ram_gb", "disk_tb", "age_days", "has_gpu", "is_managed", "cpu_util_pct", "ram_util_pct",
         "disk_util_pct", "net_in_gb", "net_out_gb", "temperature_c", "backup_success", "scheduled_maintenance",
         "avg_rack_temperature_c", "power_usage_mw", "network_latency_ms", "support_tickets", "capacity_used_pct",
-        "contract_months", "tenure_days", "monthly_spend_eur"
+        "contract_months", "tenure_days", "monthly_spend_eur", "recent_support_tickets"
       ]);
+
+      function formInputs(form) {
+        const inputs = {};
+        for (const [key, value] of new FormData(form).entries()) {
+          inputs[key] = numericFields.has(key) ? Number(value) : value;
+        }
+        return inputs;
+      }
+
+      for (const button of document.querySelectorAll(".tab-button")) {
+        button.addEventListener("click", () => {
+          for (const item of document.querySelectorAll(".tab-button, .tab-panel")) item.classList.remove("active");
+          button.classList.add("active");
+          document.getElementById(`${button.dataset.tab}-panel`).classList.add("active");
+        });
+      }
 
       document.getElementById("prediction-form").addEventListener("submit", async (event) => {
         event.preventDefault();
-        const formData = new FormData(event.target);
-        const inputs = {};
-        for (const [key, value] of formData.entries()) {
-          inputs[key] = numericFields.has(key) ? Number(value) : value;
-        }
-
+        const inputs = formInputs(event.target);
         const response = await fetch("/predict", {
           method: "POST",
           cache: "no-store",
@@ -96,6 +141,22 @@
           ? `Risk: ${data.risk_level} | probability: ${(data.incident_probability * 100).toFixed(4)}% | prediction: ${data.prediction} | input: ${data.metadata.input_hash}`
           : "Inference failed";
         document.getElementById("output").textContent = JSON.stringify({ updated_at: new Date().toISOString(), sent: inputs, received: data }, null, 2);
+      });
+
+      document.getElementById("support-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const inputs = formInputs(event.target);
+        const response = await fetch("/predict-support", {
+          method: "POST",
+          cache: "no-store",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ inputs })
+        });
+        const data = await response.json();
+        document.getElementById("support-summary").textContent = response.ok
+          ? `Forecast: ${data.prediction.toFixed(2)} tickets | rounded: ${data.rounded_prediction} | input: ${data.metadata.input_hash}`
+          : "Support forecast failed";
+        document.getElementById("support-output").textContent = JSON.stringify({ updated_at: new Date().toISOString(), sent: inputs, received: data }, null, 2);
       });
 
       document.getElementById("risky-example").addEventListener("click", () => {
@@ -110,7 +171,7 @@
           monthly_spend_eur: 455.71
         };
         for (const [key, value] of Object.entries(values)) {
-          const field = document.querySelector(`[name="${key}"]`);
+          const field = document.querySelector(`#incident-panel [name="${key}"]`);
           if (field) field.value = value;
         }
       });

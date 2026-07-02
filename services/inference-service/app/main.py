@@ -3,10 +3,10 @@ from pathlib import Path
 from fastapi import FastAPI, Response
 from fastapi.staticfiles import StaticFiles
 
-from app.predictor import predict
-from app.schemas import PredictionRequest, PredictionResponse
+from app.predictor import predict, predict_support
+from app.schemas import PredictionRequest, PredictionResponse, SupportForecastResponse
 
-app = FastAPI(title="Incident Risk Inference Service")
+app = FastAPI(title="ML Inference Service")
 STATIC_DIR = Path(__file__).resolve().parents[1] / "static"
 
 
@@ -25,6 +25,11 @@ async def add_no_cache_headers(request, call_next) -> Response:
 @app.post("/predict", response_model=PredictionResponse)
 def make_prediction(payload: PredictionRequest) -> PredictionResponse:
     return predict(payload)
+
+
+@app.post("/predict-support", response_model=SupportForecastResponse)
+def make_support_prediction(payload: PredictionRequest) -> SupportForecastResponse:
+    return predict_support(payload)
 
 
 if STATIC_DIR.exists():

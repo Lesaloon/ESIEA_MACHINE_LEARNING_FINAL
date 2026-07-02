@@ -50,3 +50,23 @@ class PredictionResponse(BaseModel):
     incident_probability: float
     risk_level: str
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class SupportForecastFeatures(BaseModel):
+    date: str = "2026-03-17"
+    region: str
+    scheduled_maintenance: int
+    avg_rack_temperature_c: float
+    power_usage_mw: float
+    network_latency_ms: float
+    capacity_used_pct: float
+    recent_support_tickets: float = 4.0
+    day_of_week: int | None = None
+    day_of_month: int | None = None
+    days_since_start: int | None = None
+
+
+class SupportForecastResponse(BaseModel):
+    prediction: float
+    rounded_prediction: int
+    metadata: dict[str, Any] = Field(default_factory=dict)
