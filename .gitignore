@@ -8,3 +8,7 @@ __pycache__/
 venv/
 node_modules/
 .DS_Store
+experiments/*/runs/
+experiments/*/runs_v2/
+experiments/*/final_model/
+train/*/runs/
