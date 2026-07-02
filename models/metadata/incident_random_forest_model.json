@@ -1,0 +1,14 @@
+{
+  "name": "incident_random_forest_model",
+  "problem": "incident_next_7d binary classification",
+  "artifact_path": "models/artifacts/incident_random_forest_model.pkl",
+  "saved_with": "joblib",
+  "model_type": "RandomForestClassifier",
+  "threshold": 0.21265613301105626,
+  "average_precision": 0.14510021054776476,
+  "roc_auc": 0.8200738924528935,
+  "precision": 0.21753246753246752,
+  "recall": 0.3526315789473684,
+  "f1": 0.26907630522088355,
+  "source_run": "train/incident_prediction/runs/20260702_145243"
+}

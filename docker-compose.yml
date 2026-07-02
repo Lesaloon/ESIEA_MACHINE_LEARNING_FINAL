@@ -1,0 +1,25 @@
+services:
+  inference-service:
+    build:
+      context: ./services/inference-service
+    container_name: ml-inference-service
+    ports:
+      - "${INFERENCE_SERVICE_PORT:-8000}:8000"
+    volumes:
+      - ./models:/models
+      - ./data:/data
+    networks:
+      - ml-network
+
+  model-storage:
+    build:
+      context: ./services/model-storage
+    container_name: ml-model-storage
+    volumes:
+      - ./models:/models
+    networks:
+      - ml-network
+
+networks:
+  ml-network:
+    driver: bridge
