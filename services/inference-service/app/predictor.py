@@ -5,7 +5,7 @@ import json
 
 import pandas as pd
 
-from app.model_loader import load_model, load_support_model
+from app.model_loader import load_model, load_support_metadata, load_support_model
 from app.schemas import IncidentFeatures, PredictionRequest, PredictionResponse, SupportForecastFeatures, SupportForecastResponse
 
 
@@ -201,18 +201,26 @@ def predict(payload: PredictionRequest) -> PredictionResponse:
 
 def predict_support(payload: PredictionRequest) -> SupportForecastResponse:
     model = load_support_model()
+    model_metadata = load_support_metadata()
     features = _payload_to_support_features(payload)
     feature_frame = build_support_feature_frame(features)
     prediction = float(max(model.predict(feature_frame)[0], 0))
+    error_margin = model_metadata.get("mae")
 
     return SupportForecastResponse(
         prediction=prediction,
         rounded_prediction=int(round(prediction)),
         metadata={
             "model_loaded": True,
-            "model_type": "ExtraTreesRegressor",
+            "model_type": model_metadata.get("model_type", "ExtraTreesRegressor"),
             "region": features.region,
             "date": features.date,
+            "error_margin_mae": error_margin,
+            "expected_range_low": max(prediction - error_margin, 0) if isinstance(error_margin, int | float) else None,
+            "expected_range_high": prediction + error_margin if isinstance(error_margin, int | float) else None,
+            "rmse": model_metadata.get("rmse"),
+            "r2": model_metadata.get("r2"),
+            "selection_metric": model_metadata.get("selection_metric"),
             "input_hash": _input_hash(features.model_dump()),
             "feature_count": int(feature_frame.shape[1]),
         },

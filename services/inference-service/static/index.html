@@ -160,7 +160,7 @@
         });
         const data = await response.json();
         document.getElementById("support-summary").textContent = response.ok
-          ? `Forecast: ${data.prediction.toFixed(2)} tickets | rounded: ${data.rounded_prediction} | input: ${data.metadata.input_hash}`
+          ? `Forecast: ${data.prediction.toFixed(2)} tickets ± ${data.metadata.error_margin_mae.toFixed(2)} MAE | expected range: ${data.metadata.expected_range_low.toFixed(2)}-${data.metadata.expected_range_high.toFixed(2)} | rounded: ${data.rounded_prediction}`
           : "Support forecast failed";
         document.getElementById("support-output").textContent = JSON.stringify({ updated_at: new Date().toISOString(), sent: inputs, received: data }, null, 2);
       });
