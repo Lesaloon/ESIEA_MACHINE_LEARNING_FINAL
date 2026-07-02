@@ -1,0 +1,54 @@
+{
+  "source_files": {
+    "ml_training_dataset": "data/raw/ml_training_dataset.csv",
+    "technical_region_metrics": "data/raw/technical_region_metrics.csv"
+  },
+  "raw_ml_dataset": {
+    "rows": 74250,
+    "columns": 33,
+    "duplicate_rows": 0,
+    "missing_values": {},
+    "date_min": "2026-01-01",
+    "date_max": "2026-03-16",
+    "n_servers": 2200,
+    "n_customers": 821,
+    "n_regions": 7,
+    "incident_next_7d_rate": 0.021966329966329967,
+    "overload_anomaly_rate": 0.0028282828282828283
+  },
+  "processed_outputs": {
+    "incident_dataset": {
+      "path": "data/processed/incident_dataset.csv",
+      "rows": 74250,
+      "columns": 34,
+      "target": "incident_next_7d"
+    },
+    "support_dataset": {
+      "path": "data/processed/support_dataset.csv",
+      "rows": 525,
+      "columns": 11,
+      "target": "support_tickets"
+    },
+    "unsupervised_dataset": {
+      "path": "data/processed/unsupervised_dataset.csv",
+      "rows": 74250,
+      "columns": 32,
+      "target": null
+    }
+  },
+  "preprocessing_choices": {
+    "date_features": [
+      "day_of_week",
+      "day_of_month",
+      "days_since_start"
+    ],
+    "removed_identifier_columns": [
+      "customer_id"
+    ],
+    "kept_traceability_columns": [
+      "date",
+      "server_id"
+    ],
+    "missing_value_strategy": "No missing values detected in raw files; no imputation applied."
+  }
+}
