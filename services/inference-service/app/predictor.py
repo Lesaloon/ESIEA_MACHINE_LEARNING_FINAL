@@ -5,8 +5,17 @@ import json
 
 import pandas as pd
 
-from app.model_loader import load_model, load_segmentation_metadata, load_segmentation_model, load_support_metadata, load_support_model
+from app.model_loader import (
+    load_anomaly_metadata,
+    load_anomaly_model,
+    load_model,
+    load_segmentation_metadata,
+    load_segmentation_model,
+    load_support_metadata,
+    load_support_model,
+)
 from app.schemas import (
+    AnomalyResponse,
     IncidentFeatures,
     PredictionRequest,
     PredictionResponse,
@@ -101,6 +110,11 @@ def _payload_to_support_features(payload: PredictionRequest) -> SupportForecastF
 def _payload_to_segmentation_features(payload: PredictionRequest) -> SegmentationFeatures:
     data: dict[str, Any] = payload.inputs or payload.model_extra or {}
     return SegmentationFeatures(**data)
+
+
+def _payload_to_anomaly_features(payload: PredictionRequest) -> IncidentFeatures:
+    data: dict[str, Any] = payload.inputs or payload.model_extra or {}
+    return IncidentFeatures(**data)
 
 
 def _risk_level(probability: float) -> str:
@@ -245,6 +259,38 @@ def build_segmentation_feature_frame(features: SegmentationFeatures) -> pd.DataF
     return pd.DataFrame([row])
 
 
+def build_anomaly_feature_frame(features: IncidentFeatures) -> pd.DataFrame:
+    data = features.model_dump()
+    observed_date = pd.to_datetime(data["date"])
+    if data.get("day_of_week") is None:
+        data["day_of_week"] = int(observed_date.dayofweek)
+    if data.get("day_of_month") is None:
+        data["day_of_month"] = int(observed_date.day)
+    if data.get("days_since_start") is None:
+        data["days_since_start"] = int((observed_date - pd.Timestamp("2026-01-01")).days)
+
+    row = {column: data[column] for column in RAW_FEATURE_COLUMNS}
+    row["cpu_ram_pressure"] = row["cpu_util_pct"] * row["ram_util_pct"] / 100
+    row["thermal_pressure"] = row["temperature_c"] * row["cpu_util_pct"] / 100
+    row["network_total_gb"] = row["net_in_gb"] + row["net_out_gb"]
+    row["network_balance_gb"] = row["net_in_gb"] - row["net_out_gb"]
+    row["utilization_pressure"] = (
+        row["cpu_util_pct"] + row["ram_util_pct"] + row["disk_util_pct"] + row["capacity_used_pct"]
+    ) / 4
+    return pd.DataFrame([row])
+
+
+def anomaly_severity(score: float, threshold: float) -> str:
+    margin = score - threshold
+    if margin >= 0.1:
+        return "critical"
+    if margin >= 0.03:
+        return "high"
+    if margin >= 0:
+        return "medium"
+    return "low"
+
+
 def predict(payload: PredictionRequest) -> PredictionResponse:
     model = load_model()
     features = _payload_to_features(payload)
@@ -322,6 +368,35 @@ def predict_segmentation(payload: PredictionRequest) -> SegmentationResponse:
             "n_clusters": metadata.get("n_clusters"),
             "silhouette": metadata.get("silhouette"),
             "server_id": features.server_id,
+            "input_hash": _input_hash(features.model_dump()),
+            "feature_count": int(feature_frame.shape[1]),
+        },
+    )
+
+
+def predict_anomaly(payload: PredictionRequest) -> AnomalyResponse:
+    model = load_anomaly_model()
+    metadata = load_anomaly_metadata()
+    features = _payload_to_anomaly_features(payload)
+    feature_frame = build_anomaly_feature_frame(features)
+    score = float(-model.decision_function(feature_frame)[0])
+    threshold = float(metadata.get("threshold", 0.0))
+    prediction = int(score >= threshold)
+
+    return AnomalyResponse(
+        prediction=prediction,
+        is_anomaly=bool(prediction),
+        anomaly_score=score,
+        threshold=threshold,
+        severity=anomaly_severity(score, threshold),
+        metadata={
+            "model_loaded": True,
+            "model_type": metadata.get("model_type", "LocalOutlierFactor"),
+            "server_id": features.server_id,
+            "date": features.date,
+            "average_precision": metadata.get("average_precision"),
+            "recall": metadata.get("recall"),
+            "precision": metadata.get("precision"),
             "input_hash": _input_hash(features.model_dump()),
             "feature_count": int(feature_frame.shape[1]),
         },

@@ -110,3 +110,12 @@ class SegmentationResponse(BaseModel):
     profile_driver: str | None = None
     probabilities: dict[str, float] = Field(default_factory=dict)
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class AnomalyResponse(BaseModel):
+    prediction: int
+    is_anomaly: bool
+    anomaly_score: float
+    threshold: float
+    severity: str
+    metadata: dict[str, Any] = Field(default_factory=dict)

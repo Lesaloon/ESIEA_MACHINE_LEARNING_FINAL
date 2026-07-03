@@ -1,0 +1,23 @@
+{
+  "name": "anomaly_local_outlier_factor",
+  "problem": "overload anomaly detection",
+  "artifact_path": "models/artifacts/anomaly_local_outlier_factor.pkl",
+  "saved_with": "joblib",
+  "model_type": "LocalOutlierFactor",
+  "target_used_for_evaluation_only": "overload_anomaly",
+  "selection_metric": "average_precision on temporal test set",
+  "threshold": -0.00930193608687555,
+  "contamination": 0.002671690357938003,
+  "train_rows": 58390,
+  "train_fit_rows": 30000,
+  "test_rows": 15860,
+  "train_fit_anomaly_rate": 0.0028666666666666667,
+  "test_anomaly_rate": 0.0034047919293820933,
+  "predicted_anomaly_rate": 0.020113493064312735,
+  "precision": 0.03134796238244514,
+  "recall": 0.18518518518518517,
+  "f1": 0.05361930294906166,
+  "average_precision": 0.07188348821242097,
+  "roc_auc": 0.8497066280502951,
+  "source_run": "train/anomaly_detection/runs/20260703_144624"
+}

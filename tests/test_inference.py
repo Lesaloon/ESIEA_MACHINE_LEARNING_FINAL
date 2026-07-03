@@ -5,8 +5,8 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT_DIR / "services" / "inference-service"))
 
-from app.predictor import build_segmentation_feature_frame, build_support_feature_frame  # noqa: E402
-from app.schemas import SegmentationFeatures, SupportForecastFeatures  # noqa: E402
+from app.predictor import build_anomaly_feature_frame, build_segmentation_feature_frame, build_support_feature_frame  # noqa: E402
+from app.schemas import IncidentFeatures, SegmentationFeatures, SupportForecastFeatures  # noqa: E402
 
 
 def test_support_feature_frame_contains_expected_features() -> None:
@@ -68,3 +68,45 @@ def test_segmentation_feature_frame_contains_expected_features() -> None:
     assert frame.loc[0, "net_in_gb_sum"] == 248.26 * 34
     assert frame.loc[0, "cpu_util_pct_std"] == 0
     assert frame.loc[0, "backup_failure_rate"] == 0
+
+
+def test_anomaly_feature_frame_contains_expected_features() -> None:
+    features = IncidentFeatures(
+        date="2026-01-07",
+        server_id="S000049",
+        server_type="dedicated",
+        region="bhs",
+        os_family="managed",
+        segment="enterprise",
+        country="PL",
+        support_plan="standard",
+        cpu_cores=32,
+        ram_gb=16,
+        disk_tb=0.5,
+        age_days=2003,
+        has_gpu=0,
+        is_managed=1,
+        cpu_util_pct=95.3,
+        ram_util_pct=15.47,
+        disk_util_pct=37.45,
+        net_in_gb=44.79,
+        net_out_gb=462.83,
+        temperature_c=78.5,
+        backup_success=1,
+        scheduled_maintenance=1,
+        avg_rack_temperature_c=56.53,
+        power_usage_mw=0.779,
+        network_latency_ms=22.17,
+        support_tickets=9,
+        capacity_used_pct=80.38,
+        contract_months=1,
+        tenure_days=2181,
+        monthly_spend_eur=37.14,
+    )
+
+    frame = build_anomaly_feature_frame(features)
+
+    assert frame.shape == (1, 36)
+    assert frame.loc[0, "day_of_week"] == 2
+    assert frame.loc[0, "network_total_gb"] == 44.79 + 462.83
+    assert frame.loc[0, "utilization_pressure"] == (95.3 + 15.47 + 37.45 + 80.38) / 4

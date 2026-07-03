@@ -25,10 +25,11 @@
   </head>
   <body>
     <h1>ML Inference</h1>
-    <p>Use the tabs to call the incident classifier, support forecast model, or server segmentation model.</p>
+    <p>Use the tabs to call the incident classifier, anomaly detector, support forecast model, or server segmentation model.</p>
 
     <nav class="tabs" aria-label="Inference tabs">
       <a class="tab-button active" data-tab="incident" href="#incident">Incident risk</a>
+      <a class="tab-button" data-tab="anomaly" href="#anomaly">Anomaly detection</a>
       <a class="tab-button" data-tab="support" href="#support">Support forecast</a>
       <a class="tab-button" data-tab="segmentation" href="#segmentation">Server segmentation</a>
     </nav>
@@ -45,7 +46,7 @@
           <label>Region <select name="region"><option>waw</option><option>rbx</option><option>sbg</option><option>bhs</option><option>gra</option><option>lim</option><option>eri</option></select></label>
           <label>OS <select name="os_family"><option>linux</option><option>windows</option><option>managed</option></select></label>
           <label>Segment <select name="segment"><option>startup</option><option>sme</option><option>enterprise</option><option>public_sector</option><option>reseller</option></select></label>
-          <label>Country <select name="country"><option>FR</option><option>DE</option><option>UK</option><option>BE</option><option>ES</option></select></label>
+          <label>Country <select name="country"><option>FR</option><option>DE</option><option>UK</option><option>BE</option><option>ES</option><option>PL</option></select></label>
           <label>Support Plan <select name="support_plan"><option>basic</option><option>standard</option><option>premium</option><option>critical</option></select></label>
 
           <label>CPU Cores <input name="cpu_cores" type="number" value="8" /></label>
@@ -79,6 +80,55 @@
       <div class="card">
         <div id="summary" class="result">No incident prediction yet.</div>
         <pre id="output"></pre>
+      </div>
+    </section>
+
+    <section id="anomaly-panel" class="tab-panel">
+      <div class="card">
+        <button id="anomaly-example" class="example-button" type="button">Fill anomaly example</button>
+        <form id="anomaly-form">
+          <label>Date <input name="date" value="2026-01-07" /></label>
+          <label>Server ID <input name="server_id" value="S000049" /></label>
+          <label>Server Type
+            <select name="server_type"><option>vps</option><option>dedicated</option><option>gpu</option><option>storage</option><option>database</option></select>
+          </label>
+          <label>Region <select name="region"><option>waw</option><option>rbx</option><option>sbg</option><option>bhs</option><option>gra</option><option>lim</option><option>eri</option></select></label>
+          <label>OS <select name="os_family"><option>linux</option><option>windows</option><option>managed</option></select></label>
+          <label>Segment <select name="segment"><option>startup</option><option>sme</option><option>enterprise</option><option>public_sector</option><option>reseller</option></select></label>
+          <label>Country <select name="country"><option>FR</option><option>DE</option><option>UK</option><option>BE</option><option>ES</option><option>PL</option></select></label>
+          <label>Support Plan <select name="support_plan"><option>basic</option><option>standard</option><option>premium</option><option>critical</option></select></label>
+
+          <label>CPU Cores <input name="cpu_cores" type="number" value="32" /></label>
+          <label>RAM GB <input name="ram_gb" type="number" value="16" /></label>
+          <label>Disk TB <input name="disk_tb" type="number" step="0.01" value="0.5" /></label>
+          <label>Age Days <input name="age_days" type="number" value="2003" /></label>
+          <label>Has GPU <input name="has_gpu" type="number" min="0" max="1" value="0" /></label>
+          <label>Managed <input name="is_managed" type="number" min="0" max="1" value="1" /></label>
+
+          <label>CPU % <input name="cpu_util_pct" type="number" step="0.01" value="95.3" /></label>
+          <label>RAM % <input name="ram_util_pct" type="number" step="0.01" value="15.47" /></label>
+          <label>Disk % <input name="disk_util_pct" type="number" step="0.01" value="37.45" /></label>
+          <label>Net In GB <input name="net_in_gb" type="number" step="0.01" value="44.79" /></label>
+          <label>Net Out GB <input name="net_out_gb" type="number" step="0.01" value="462.83" /></label>
+          <label>Temperature C <input name="temperature_c" type="number" step="0.01" value="78.5" /></label>
+          <label>Backup Success <input name="backup_success" type="number" min="0" max="1" value="1" /></label>
+          <label>Maintenance <input name="scheduled_maintenance" type="number" min="0" max="1" value="1" /></label>
+          <label>Rack Temp C <input name="avg_rack_temperature_c" type="number" step="0.01" value="56.53" /></label>
+          <label>Power MW <input name="power_usage_mw" type="number" step="0.001" value="0.779" /></label>
+          <label>Latency MS <input name="network_latency_ms" type="number" step="0.01" value="22.17" /></label>
+          <label>Support Tickets <input name="support_tickets" type="number" value="9" /></label>
+          <label>Capacity % <input name="capacity_used_pct" type="number" step="0.01" value="80.38" /></label>
+          <label>Contract Months <input name="contract_months" type="number" value="1" /></label>
+          <label>Tenure Days <input name="tenure_days" type="number" value="2181" /></label>
+          <label>Monthly Spend EUR <input name="monthly_spend_eur" type="number" step="0.01" value="37.14" /></label>
+
+          <button type="submit">Detect anomaly</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <div id="anomaly-summary" class="result">No anomaly prediction yet.</div>
+        <pre id="anomaly-output"></pre>
       </div>
     </section>
 
@@ -116,7 +166,7 @@
           <label>Region <select name="region"><option>waw</option><option>rbx</option><option>sbg</option><option>bhs</option><option>gra</option><option>lim</option><option>eri</option></select></label>
           <label>OS <select name="os_family"><option>linux</option><option>windows</option><option>managed</option></select></label>
           <label>Segment <select name="segment"><option>startup</option><option>sme</option><option>enterprise</option><option>public_sector</option><option>reseller</option></select></label>
-          <label>Country <select name="country"><option>FR</option><option>DE</option><option>UK</option><option>BE</option><option>ES</option></select></label>
+          <label>Country <select name="country"><option>FR</option><option>DE</option><option>UK</option><option>BE</option><option>ES</option><option>PL</option></select></label>
           <label>Support Plan <select name="support_plan"><option>basic</option><option>standard</option><option>premium</option><option>critical</option></select></label>
 
           <label>CPU Cores <input name="cpu_cores" type="number" value="8" /></label>
@@ -170,7 +220,7 @@
       }
 
       function showTab(tabName) {
-        const selectedTab = ["incident", "support", "segmentation"].includes(tabName) ? tabName : "incident";
+        const selectedTab = ["incident", "anomaly", "support", "segmentation"].includes(tabName) ? tabName : "incident";
         for (const item of document.querySelectorAll(".tab-button, .tab-panel")) item.classList.remove("active");
         document.querySelector(`[data-tab="${selectedTab}"]`).classList.add("active");
         document.getElementById(`${selectedTab}-panel`).classList.add("active");
@@ -197,6 +247,22 @@
           ? `Risk: ${data.risk_level} | probability: ${(data.incident_probability * 100).toFixed(4)}% | prediction: ${data.prediction} | input: ${data.metadata.input_hash}`
           : "Inference failed";
         document.getElementById("output").textContent = JSON.stringify({ updated_at: new Date().toISOString(), sent: inputs, received: data }, null, 2);
+      });
+
+      document.getElementById("anomaly-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const inputs = formInputs(event.target);
+        const response = await fetch("/predict-anomaly", {
+          method: "POST",
+          cache: "no-store",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ inputs })
+        });
+        const data = await response.json();
+        document.getElementById("anomaly-summary").textContent = response.ok
+          ? `Anomaly: ${data.is_anomaly} | severity: ${data.severity} | score: ${data.anomaly_score.toFixed(4)} | threshold: ${data.threshold.toFixed(4)}`
+          : "Anomaly detection failed";
+        document.getElementById("anomaly-output").textContent = JSON.stringify({ updated_at: new Date().toISOString(), sent: inputs, received: data }, null, 2);
       });
 
       document.getElementById("support-form").addEventListener("submit", async (event) => {
@@ -260,6 +326,23 @@
           network_latency_ms: 19.52, capacity_used_pct: 45.74, contract_months: 36, tenure_days: 1197,
           monthly_spend_eur: 130.34, observation_count: 34
         });
+      });
+
+      document.getElementById("anomaly-example").addEventListener("click", () => {
+        const values = {
+          date: "2026-01-07", server_id: "S000049", server_type: "dedicated", region: "bhs",
+          os_family: "managed", segment: "enterprise", country: "PL", support_plan: "standard",
+          cpu_cores: 32, ram_gb: 16, disk_tb: 0.5, age_days: 2003, has_gpu: 0, is_managed: 1,
+          cpu_util_pct: 95.3, ram_util_pct: 15.47, disk_util_pct: 37.45, net_in_gb: 44.79,
+          net_out_gb: 462.83, temperature_c: 78.5, backup_success: 1, scheduled_maintenance: 1,
+          avg_rack_temperature_c: 56.53, power_usage_mw: 0.779, network_latency_ms: 22.17,
+          support_tickets: 9, capacity_used_pct: 80.38, contract_months: 1, tenure_days: 2181,
+          monthly_spend_eur: 37.14
+        };
+        for (const [key, value] of Object.entries(values)) {
+          const field = document.querySelector(`#anomaly-panel [name="${key}"]`);
+          if (field) field.value = value;
+        }
       });
 
       document.getElementById("risky-example").addEventListener("click", () => {

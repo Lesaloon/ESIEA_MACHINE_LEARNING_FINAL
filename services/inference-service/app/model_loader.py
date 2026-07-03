@@ -11,6 +11,8 @@ CONTAINER_SUPPORT_MODEL_PATH = Path("/models/artifacts/support_extra_trees_model
 CONTAINER_SUPPORT_METADATA_PATH = Path("/models/metadata/support_extra_trees_model.json")
 CONTAINER_SEGMENTATION_MODEL_PATH = Path("/models/artifacts/server_segmentation_gaussian_mixture.pkl")
 CONTAINER_SEGMENTATION_METADATA_PATH = Path("/models/metadata/server_segmentation_gaussian_mixture.json")
+CONTAINER_ANOMALY_MODEL_PATH = Path("/models/artifacts/anomaly_local_outlier_factor.pkl")
+CONTAINER_ANOMALY_METADATA_PATH = Path("/models/metadata/anomaly_local_outlier_factor.json")
 
 
 def resolve_incident_model_path() -> Path:
@@ -68,6 +70,28 @@ def resolve_segmentation_metadata_path() -> Path:
     return CONTAINER_SEGMENTATION_METADATA_PATH
 
 
+def resolve_anomaly_model_path() -> Path:
+    if configured_path := os.getenv("ANOMALY_MODEL_PATH"):
+        return Path(configured_path)
+    if CONTAINER_ANOMALY_MODEL_PATH.exists():
+        return CONTAINER_ANOMALY_MODEL_PATH
+    current_path = Path(__file__).resolve()
+    if len(current_path.parents) > 3:
+        return current_path.parents[3] / "models" / "artifacts" / "anomaly_local_outlier_factor.pkl"
+    return CONTAINER_ANOMALY_MODEL_PATH
+
+
+def resolve_anomaly_metadata_path() -> Path:
+    if configured_path := os.getenv("ANOMALY_MODEL_METADATA_PATH"):
+        return Path(configured_path)
+    if CONTAINER_ANOMALY_METADATA_PATH.exists():
+        return CONTAINER_ANOMALY_METADATA_PATH
+    current_path = Path(__file__).resolve()
+    if len(current_path.parents) > 3:
+        return current_path.parents[3] / "models" / "metadata" / "anomaly_local_outlier_factor.json"
+    return CONTAINER_ANOMALY_METADATA_PATH
+
+
 @lru_cache
 def load_model() -> object:
     model_path = resolve_incident_model_path()
@@ -103,6 +127,22 @@ def load_segmentation_model() -> object:
 @lru_cache
 def load_segmentation_metadata() -> dict[str, object]:
     metadata_path = resolve_segmentation_metadata_path()
+    if not metadata_path.exists():
+        return {}
+    return json.loads(metadata_path.read_text(encoding="utf-8"))
+
+
+@lru_cache
+def load_anomaly_model() -> object:
+    model_path = resolve_anomaly_model_path()
+    if not model_path.exists():
+        raise FileNotFoundError(f"Model artifact not found: {model_path}")
+    return joblib.load(model_path)
+
+
+@lru_cache
+def load_anomaly_metadata() -> dict[str, object]:
+    metadata_path = resolve_anomaly_metadata_path()
     if not metadata_path.exists():
         return {}
     return json.loads(metadata_path.read_text(encoding="utf-8"))
