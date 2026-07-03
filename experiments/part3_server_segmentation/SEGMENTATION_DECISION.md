@@ -13,30 +13,29 @@ Modèles testés : `KMeans`, `GaussianMixture`, `Birch`, `AgglomerativeClusterin
 
 ## Résultats
 
-Run retenu : `experiments/part3_server_segmentation/runs/20260703_134459/`
+Run retenu : `experiments/part3_server_segmentation/runs/20260703_141532/`
 
 - meilleur modèle : `GaussianMixture`, covariance `diag`
-- nombre de clusters : `3`
-- score de silhouette : `0.1006`
-- Davies-Bouldin : `2.5423`
-- Calinski-Harabasz : `183.6313`
+- nombre de clusters : `2`
+- score de silhouette : `0.1225`
+- Davies-Bouldin : `2.5606`
+- Calinski-Harabasz : `179.4024`
 - serveurs segmentés : `2200`
 
 Top 5 du benchmark :
 
+- `GaussianMixture(diag)`, `k=2`, silhouette `0.1225`
 - `GaussianMixture(diag)`, `k=3`, silhouette `0.1006`
-- `GaussianMixture(diag)`, `k=4`, silhouette `0.0826`
-- `KMeans`, `k=3`, silhouette `0.0824`
-- `Birch`, `k=3`, silhouette `0.0770`
-- `AgglomerativeClustering`, `k=3`, silhouette `0.0770`
+- `KMeans`, `k=2`, silhouette `0.0981`
+- `GaussianMixture(tied)`, `k=2`, silhouette `0.0939`
+- `Birch`, `k=2`, silhouette `0.0869`
 
 Profils obtenus après correction du nommage automatique :
 
-- cluster `0` : `240` serveurs, profil `serveurs stockage sollicite`, driver `disk_util_pct_mean (+12.03 vs moyenne clusters)`
-- cluster `1` : `357` serveurs, profil `serveurs temperature elevee`, driver `temperature_c_mean (+4.52 vs moyenne clusters)`
-- cluster `2` : `1603` serveurs, profil `serveurs standard`, driver `aucun ecart dominant`
+- cluster `0` : `1843` serveurs, profil `serveurs standard`, driver `aucun ecart dominant`
+- cluster `1` : `357` serveurs, profil `serveurs temperature elevee`, driver `temperature_c_mean (+2.36 vs moyenne clusters)`
 
-Le profil `latence elevee` n'est pas retenu car les différences de latence entre clusters sont trop faibles pour être interprétées métier.
+Le profil `latence elevee` n'est pas retenu car les différences de latence entre clusters sont trop faibles pour être interprétées métier. Le profil `stockage sollicite` apparaissait avec `k=3`, mais le score de silhouette indique que la séparation la plus robuste est plutôt une segmentation en deux familles : serveurs standards et serveurs à température élevée.
 
 Fichiers à utiliser pour l'analyse métier :
 

@@ -106,7 +106,6 @@
 
     <section id="segmentation-panel" class="tab-panel">
       <div class="card">
-        <button id="segmentation-storage-example" class="example-button" type="button">Fill storage cluster example</button>
         <button id="segmentation-hot-example" class="example-button" type="button">Fill temperature cluster example</button>
         <button id="segmentation-standard-example" class="example-button" type="button">Fill standard cluster example</button>
         <form id="segmentation-form">
@@ -238,18 +237,6 @@
           if (field) field.value = value;
         }
       }
-
-      document.getElementById("segmentation-storage-example").addEventListener("click", () => {
-        fillSegmentationExample({
-          server_id: "S000008", server_type: "storage", region: "gra", os_family: "linux", segment: "reseller",
-          country: "FR", support_plan: "standard", cpu_cores: 8, ram_gb: 32, disk_tb: 0.5,
-          age_days: 796, has_gpu: 0, is_managed: 0, cpu_util_pct: 15.26, ram_util_pct: 32.07,
-          disk_util_pct: 51.78, net_in_gb: 67.73, net_out_gb: 78.17, temperature_c: 41.15,
-          backup_success: 1, scheduled_maintenance: 0, avg_rack_temperature_c: 48.45, power_usage_mw: 0.666,
-          network_latency_ms: 22.6, capacity_used_pct: 69.6, contract_months: 12, tenure_days: 2206,
-          monthly_spend_eur: 41.76, observation_count: 32
-        });
-      });
 
       document.getElementById("segmentation-hot-example").addEventListener("click", () => {
         fillSegmentationExample({

@@ -25,7 +25,7 @@ OUTPUT_ROOT = ROOT_DIR / "train" / "server_segmentation" / "runs"
 ARTIFACT_PATH = ROOT_DIR / "models" / "artifacts" / "server_segmentation_gaussian_mixture.pkl"
 METADATA_PATH = ROOT_DIR / "models" / "metadata" / "server_segmentation_gaussian_mixture.json"
 RANDOM_STATE = 42
-N_CLUSTERS = 3
+N_CLUSTERS = 2
 
 CATEGORICAL_COLUMNS = ["server_type", "region", "os_family", "segment", "country", "support_plan"]
 
