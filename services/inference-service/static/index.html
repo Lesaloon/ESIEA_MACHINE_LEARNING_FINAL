@@ -106,6 +106,9 @@
 
     <section id="segmentation-panel" class="tab-panel">
       <div class="card">
+        <button id="segmentation-storage-example" class="example-button" type="button">Fill storage cluster example</button>
+        <button id="segmentation-hot-example" class="example-button" type="button">Fill temperature cluster example</button>
+        <button id="segmentation-standard-example" class="example-button" type="button">Fill standard cluster example</button>
         <form id="segmentation-form">
           <label>Server ID <input name="server_id" value="S000000" /></label>
           <label>Server Type
@@ -227,6 +230,49 @@
           ? `Cluster ${data.cluster}: ${data.profile_name} | driver: ${data.profile_driver || "n/a"}`
           : "Segmentation failed";
         document.getElementById("segmentation-output").textContent = JSON.stringify({ updated_at: new Date().toISOString(), sent: inputs, received: data }, null, 2);
+      });
+
+      function fillSegmentationExample(values) {
+        for (const [key, value] of Object.entries(values)) {
+          const field = document.querySelector(`#segmentation-panel [name="${key}"]`);
+          if (field) field.value = value;
+        }
+      }
+
+      document.getElementById("segmentation-storage-example").addEventListener("click", () => {
+        fillSegmentationExample({
+          server_id: "S000008", server_type: "storage", region: "gra", os_family: "linux", segment: "reseller",
+          country: "FR", support_plan: "standard", cpu_cores: 8, ram_gb: 32, disk_tb: 0.5,
+          age_days: 796, has_gpu: 0, is_managed: 0, cpu_util_pct: 15.26, ram_util_pct: 32.07,
+          disk_util_pct: 51.78, net_in_gb: 67.73, net_out_gb: 78.17, temperature_c: 41.15,
+          backup_success: 1, scheduled_maintenance: 0, avg_rack_temperature_c: 48.45, power_usage_mw: 0.666,
+          network_latency_ms: 22.6, capacity_used_pct: 69.6, contract_months: 12, tenure_days: 2206,
+          monthly_spend_eur: 41.76, observation_count: 32
+        });
+      });
+
+      document.getElementById("segmentation-hot-example").addEventListener("click", () => {
+        fillSegmentationExample({
+          server_id: "S000002", server_type: "gpu", region: "rbx", os_family: "windows", segment: "reseller",
+          country: "FR", support_plan: "standard", cpu_cores: 8, ram_gb: 32, disk_tb: 0.25,
+          age_days: 492, has_gpu: 1, is_managed: 0, cpu_util_pct: 34.05, ram_util_pct: 56.7,
+          disk_util_pct: 48.5, net_in_gb: 65.79, net_out_gb: 56.89, temperature_c: 47.86,
+          backup_success: 1, scheduled_maintenance: 0, avg_rack_temperature_c: 48.48, power_usage_mw: 0.784,
+          network_latency_ms: 9.01, capacity_used_pct: 52.17, contract_months: 12, tenure_days: 2206,
+          monthly_spend_eur: 41.76, observation_count: 35
+        });
+      });
+
+      document.getElementById("segmentation-standard-example").addEventListener("click", () => {
+        fillSegmentationExample({
+          server_id: "S000000", server_type: "vps", region: "waw", os_family: "linux", segment: "startup",
+          country: "DE", support_plan: "critical", cpu_cores: 8, ram_gb: 16, disk_tb: 2.0,
+          age_days: 1339, has_gpu: 0, is_managed: 0, cpu_util_pct: 15.37, ram_util_pct: 51.24,
+          disk_util_pct: 30.48, net_in_gb: 15.28, net_out_gb: 55.9, temperature_c: 36.81,
+          backup_success: 1, scheduled_maintenance: 0, avg_rack_temperature_c: 48.4, power_usage_mw: 0.681,
+          network_latency_ms: 19.52, capacity_used_pct: 45.74, contract_months: 36, tenure_days: 1197,
+          monthly_spend_eur: 130.34, observation_count: 34
+        });
       });
 
       document.getElementById("risky-example").addEventListener("click", () => {
