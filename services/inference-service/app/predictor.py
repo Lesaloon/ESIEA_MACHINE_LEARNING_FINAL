@@ -2,8 +2,10 @@ from typing import Any
 
 import hashlib
 import json
+from numbers import Number
 
 import pandas as pd
+from sklearn.pipeline import Pipeline
 
 from app.model_loader import (
     load_anomaly_metadata,
@@ -291,6 +293,90 @@ def anomaly_severity(score: float, threshold: float) -> str:
     return "low"
 
 
+def score_anomaly_frame(model: Pipeline, frame: pd.DataFrame) -> float:
+    return float(-model.decision_function(frame)[0])
+
+
+def feature_direction(value: Any, reference: Any) -> str:
+    if isinstance(value, Number) and isinstance(reference, Number):
+        if value > reference:
+            return "above_normal"
+        if value < reference:
+            return "below_normal"
+        return "near_normal"
+    if value == reference:
+        return "usual_category"
+    return "unusual_category"
+
+
+def readable_feature_name(feature: str) -> str:
+    names = {
+        "cpu_util_pct": "CPU usage",
+        "ram_util_pct": "RAM usage",
+        "disk_util_pct": "disk usage",
+        "temperature_c": "server temperature",
+        "net_in_gb": "incoming network traffic",
+        "net_out_gb": "outgoing network traffic",
+        "network_total_gb": "total network traffic",
+        "network_balance_gb": "network traffic imbalance",
+        "capacity_used_pct": "capacity usage",
+        "support_tickets": "support tickets",
+        "scheduled_maintenance": "scheduled maintenance",
+        "thermal_pressure": "thermal pressure",
+        "cpu_ram_pressure": "CPU/RAM pressure",
+        "utilization_pressure": "global utilization pressure",
+        "power_usage_mw": "power usage",
+        "network_latency_ms": "network latency",
+        "is_managed": "managed server flag",
+        "has_gpu": "GPU flag",
+        "contract_months": "contract duration",
+        "monthly_spend_eur": "monthly spend",
+    }
+    return names.get(feature, feature.replace("_", " "))
+
+
+def explain_anomaly(model: Pipeline, feature_frame: pd.DataFrame, metadata: dict[str, object], base_score: float) -> tuple[list[dict[str, Any]], str]:
+    references = metadata.get("reference_values", {})
+    numeric_refs = references.get("numeric", {}) if isinstance(references, dict) else {}
+    categorical_refs = references.get("categorical", {}) if isinstance(references, dict) else {}
+
+    explanations = []
+    for feature in feature_frame.columns:
+        if feature in numeric_refs:
+            reference = numeric_refs[feature].get("median")
+        elif feature in categorical_refs:
+            reference = categorical_refs[feature]
+        else:
+            continue
+
+        current_value = feature_frame.loc[0, feature]
+        perturbed = feature_frame.copy()
+        perturbed.loc[0, feature] = reference
+        perturbed_score = score_anomaly_frame(model, perturbed)
+        impact = base_score - perturbed_score
+        if impact <= 0:
+            continue
+
+        explanations.append(
+            {
+                "feature": feature,
+                "label": readable_feature_name(feature),
+                "value": current_value.item() if hasattr(current_value, "item") else current_value,
+                "reference": reference,
+                "direction": feature_direction(current_value, reference),
+                "impact": float(impact),
+            }
+        )
+
+    top_explanations = sorted(explanations, key=lambda item: item["impact"], reverse=True)[:5]
+    if top_explanations:
+        reasons = ", ".join(item["label"] for item in top_explanations[:3])
+        human_explanation = f"This server is flagged mainly because these signals differ from normal behavior: {reasons}."
+    else:
+        human_explanation = "No single feature dominates this anomaly score; the alert comes from the combined server profile."
+    return top_explanations, human_explanation
+
+
 def predict(payload: PredictionRequest) -> PredictionResponse:
     model = load_model()
     features = _payload_to_features(payload)
@@ -379,9 +465,10 @@ def predict_anomaly(payload: PredictionRequest) -> AnomalyResponse:
     metadata = load_anomaly_metadata()
     features = _payload_to_anomaly_features(payload)
     feature_frame = build_anomaly_feature_frame(features)
-    score = float(-model.decision_function(feature_frame)[0])
+    score = score_anomaly_frame(model, feature_frame)
     threshold = float(metadata.get("threshold", 0.0))
     prediction = int(score >= threshold)
+    top_explanations, human_explanation = explain_anomaly(model, feature_frame, metadata, score)
 
     return AnomalyResponse(
         prediction=prediction,
@@ -389,6 +476,8 @@ def predict_anomaly(payload: PredictionRequest) -> AnomalyResponse:
         anomaly_score=score,
         threshold=threshold,
         severity=anomaly_severity(score, threshold),
+        top_explanations=top_explanations,
+        human_explanation=human_explanation,
         metadata={
             "model_loaded": True,
             "model_type": metadata.get("model_type", "LocalOutlierFactor"),

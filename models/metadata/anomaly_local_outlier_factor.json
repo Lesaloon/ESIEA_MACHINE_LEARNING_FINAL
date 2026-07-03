@@ -19,5 +19,167 @@
   "f1": 0.05361930294906166,
   "average_precision": 0.07188348821242097,
   "roc_auc": 0.8497066280502951,
-  "source_run": "train/anomaly_detection/runs/20260703_144624"
+  "reference_values": {
+    "numeric": {
+      "cpu_cores": {
+        "median": 8.0,
+        "mean": 12.4934,
+        "std": 14.557065516099046
+      },
+      "ram_gb": {
+        "median": 16.0,
+        "mean": 35.22253333333333,
+        "std": 45.47152455748787
+      },
+      "disk_tb": {
+        "median": 1.0,
+        "mean": 1.3287533333333332,
+        "std": 1.6674708630604482
+      },
+      "age_days": {
+        "median": 1093.0,
+        "mean": 1100.8322666666666,
+        "std": 642.6859723578295
+      },
+      "has_gpu": {
+        "median": 0.0,
+        "mean": 0.056666666666666664,
+        "std": 0.2312045751181312
+      },
+      "is_managed": {
+        "median": 0.0,
+        "mean": 0.15306666666666666,
+        "std": 0.3600517493669795
+      },
+      "cpu_util_pct": {
+        "median": 41.86,
+        "mean": 41.97594333333333,
+        "std": 17.93692078136013
+      },
+      "ram_util_pct": {
+        "median": 42.455,
+        "mean": 42.610534,
+        "std": 15.3766280014457
+      },
+      "disk_util_pct": {
+        "median": 36.49,
+        "mean": 36.958981333333334,
+        "std": 12.312786673305041
+      },
+      "net_in_gb": {
+        "median": 130.56,
+        "mean": 156.07779966666666,
+        "std": 111.85511163522449
+      },
+      "net_out_gb": {
+        "median": 113.21,
+        "mean": 135.962132,
+        "std": 97.96262515606608
+      },
+      "temperature_c": {
+        "median": 52.05,
+        "mean": 52.068659333333336,
+        "std": 9.04524062307242
+      },
+      "backup_success": {
+        "median": 1.0,
+        "mean": 0.9566666666666667,
+        "std": 0.20360637405433935
+      },
+      "scheduled_maintenance": {
+        "median": 0.0,
+        "mean": 0.08323333333333334,
+        "std": 0.2762345842858123
+      },
+      "avg_rack_temperature_c": {
+        "median": 52.34,
+        "mean": 52.079371333333334,
+        "std": 2.4770936918315294
+      },
+      "power_usage_mw": {
+        "median": 0.555,
+        "mean": 0.5637493666666666,
+        "std": 0.08695914605682499
+      },
+      "network_latency_ms": {
+        "median": 18.6,
+        "mean": 18.807424666666666,
+        "std": 7.099947945418911
+      },
+      "support_tickets": {
+        "median": 4.0,
+        "mean": 4.370966666666667,
+        "std": 2.272960712130522
+      },
+      "capacity_used_pct": {
+        "median": 68.28,
+        "mean": 68.75320266666667,
+        "std": 12.108409709079314
+      },
+      "contract_months": {
+        "median": 12.0,
+        "mean": 11.762566666666666,
+        "std": 10.505588611728944
+      },
+      "tenure_days": {
+        "median": 1251.0,
+        "mean": 1243.6777666666667,
+        "std": 700.1000886056785
+      },
+      "monthly_spend_eur": {
+        "median": 71.46,
+        "mean": 106.827251,
+        "std": 121.12903772778708
+      },
+      "day_of_week": {
+        "median": 3.0,
+        "mean": 3.0420666666666665,
+        "std": 1.9630495991922592
+      },
+      "day_of_month": {
+        "median": 15.0,
+        "mean": 15.266533333333333,
+        "std": 8.609782806913437
+      },
+      "days_since_start": {
+        "median": 29.0,
+        "mean": 29.051466666666666,
+        "std": 17.041942901233092
+      },
+      "cpu_ram_pressure": {
+        "median": 16.862037,
+        "mean": 18.42293154776667,
+        "std": 11.248005000399145
+      },
+      "thermal_pressure": {
+        "median": 21.680426499999996,
+        "mean": 23.198685963966668,
+        "std": 12.898710275247035
+      },
+      "network_total_gb": {
+        "median": 265.56,
+        "mean": 292.0399316666667,
+        "std": 151.02387133549007
+      },
+      "network_balance_gb": {
+        "median": 14.914999999999992,
+        "mean": 20.115667666666667,
+        "std": 146.3156660772667
+      },
+      "utilization_pressure": {
+        "median": 47.42,
+        "mean": 47.574665333333336,
+        "std": 7.318036227681911
+      }
+    },
+    "categorical": {
+      "server_type": "vps",
+      "region": "rbx",
+      "os_family": "linux",
+      "segment": "sme",
+      "country": "FR",
+      "support_plan": "basic"
+    }
+  },
+  "source_run": "train/anomaly_detection/runs/20260703_145624"
 }

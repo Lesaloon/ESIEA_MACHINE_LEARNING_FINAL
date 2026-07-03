@@ -20,6 +20,8 @@
       button[type="submit"]:hover, .example-button:hover { background: #1d4ed8; }
       pre { white-space: pre-wrap; background: #0f172a; color: #d1fae5; padding: 16px; border-radius: 10px; overflow-x: auto; }
       .result { font-size: 20px; font-weight: 700; }
+      .explanations { margin: 12px 0 0; padding-left: 20px; }
+      .explanations li { margin: 6px 0; }
       @media (max-width: 760px) { form { grid-template-columns: 1fr; } .tabs { flex-direction: column; } }
     </style>
   </head>
@@ -128,6 +130,8 @@
 
       <div class="card">
         <div id="anomaly-summary" class="result">No anomaly prediction yet.</div>
+        <p id="anomaly-human-explanation"></p>
+        <ul id="anomaly-explanations" class="explanations"></ul>
         <pre id="anomaly-output"></pre>
       </div>
     </section>
@@ -262,6 +266,16 @@
         document.getElementById("anomaly-summary").textContent = response.ok
           ? `Anomaly: ${data.is_anomaly} | severity: ${data.severity} | score: ${data.anomaly_score.toFixed(4)} | threshold: ${data.threshold.toFixed(4)}`
           : "Anomaly detection failed";
+        document.getElementById("anomaly-human-explanation").textContent = response.ok ? data.human_explanation : "";
+        const explanationList = document.getElementById("anomaly-explanations");
+        explanationList.innerHTML = "";
+        if (response.ok) {
+          for (const item of data.top_explanations) {
+            const li = document.createElement("li");
+            li.textContent = `${item.label}: ${item.value} vs normal ${item.reference} (${item.direction}, impact ${item.impact.toFixed(4)})`;
+            explanationList.appendChild(li);
+          }
+        }
         document.getElementById("anomaly-output").textContent = JSON.stringify({ updated_at: new Date().toISOString(), sent: inputs, received: data }, null, 2);
       });
 

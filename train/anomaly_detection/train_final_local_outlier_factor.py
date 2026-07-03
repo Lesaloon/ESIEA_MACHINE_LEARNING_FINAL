@@ -74,6 +74,22 @@ def anomaly_scores(pipeline: Pipeline, X: pd.DataFrame) -> np.ndarray:
     return -pipeline.decision_function(X)
 
 
+def reference_values(X_train_fit: pd.DataFrame) -> dict[str, dict[str, object]]:
+    numeric_reference = {}
+    for column in X_train_fit.select_dtypes(include="number").columns:
+        numeric_reference[column] = {
+            "median": float(X_train_fit[column].median()),
+            "mean": float(X_train_fit[column].mean()),
+            "std": float(X_train_fit[column].std(ddof=0)),
+        }
+
+    categorical_reference = {}
+    for column in X_train_fit.select_dtypes(include=["object", "string"]).columns:
+        categorical_reference[column] = str(X_train_fit[column].mode().iloc[0])
+
+    return {"numeric": numeric_reference, "categorical": categorical_reference}
+
+
 def main() -> None:
     output_dir = OUTPUT_ROOT / datetime.now().strftime("%Y%m%d_%H%M%S")
     logger = setup_logger(output_dir)
@@ -145,6 +161,7 @@ def main() -> None:
         "target_used_for_evaluation_only": TARGET,
         "selection_metric": "average_precision on temporal test set",
         **metrics,
+        "reference_values": reference_values(X_train_fit),
         "source_run": str(output_dir.relative_to(ROOT_DIR)),
     }
     METADATA_PATH.write_text(json.dumps(metadata, indent=2, ensure_ascii=False), encoding="utf-8")

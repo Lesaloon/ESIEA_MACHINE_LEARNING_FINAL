@@ -118,4 +118,6 @@ class AnomalyResponse(BaseModel):
     anomaly_score: float
     threshold: float
     severity: str
+    top_explanations: list[dict[str, Any]] = Field(default_factory=list)
+    human_explanation: str = ""
     metadata: dict[str, Any] = Field(default_factory=dict)
