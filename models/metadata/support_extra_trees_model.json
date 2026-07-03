@@ -6,8 +6,8 @@
   "model_type": "ExtraTreesRegressor",
   "selection_metric": "MAE on temporal test set",
   "mae": 1.6635717523269598,
-  "rmse": 2.049614994030232,
-  "r2": 0.02327326422811915,
+  "rmse": 2.0496149940302324,
+  "r2": 0.02327326422811904,
   "safe_mape": 0.620611738313686,
   "best_params": {
     "max_depth": 5,
@@ -16,5 +16,5 @@
     "min_samples_split": 12,
     "n_estimators": 207
   },
-  "source_run": "experiments/part2_support_forecast/runs/20260702_154507"
+  "source_run": "train/support_forecast/runs/20260703_140124"
 }

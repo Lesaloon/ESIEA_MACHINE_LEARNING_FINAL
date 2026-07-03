@@ -25,11 +25,12 @@
   </head>
   <body>
     <h1>ML Inference</h1>
-    <p>Use the tabs to call the incident classifier or the support tickets forecast model.</p>
+    <p>Use the tabs to call the incident classifier, support forecast model, or server segmentation model.</p>
 
     <nav class="tabs" aria-label="Inference tabs">
       <a class="tab-button active" data-tab="incident" href="#incident">Incident risk</a>
       <a class="tab-button" data-tab="support" href="#support">Support forecast</a>
+      <a class="tab-button" data-tab="segmentation" href="#segmentation">Server segmentation</a>
     </nav>
 
     <section id="incident-panel" class="tab-panel active">
@@ -103,12 +104,59 @@
       </div>
     </section>
 
+    <section id="segmentation-panel" class="tab-panel">
+      <div class="card">
+        <form id="segmentation-form">
+          <label>Server ID <input name="server_id" value="S000000" /></label>
+          <label>Server Type
+            <select name="server_type"><option>vps</option><option>dedicated</option><option>gpu</option><option>storage</option><option>database</option></select>
+          </label>
+          <label>Region <select name="region"><option>waw</option><option>rbx</option><option>sbg</option><option>bhs</option><option>gra</option><option>lim</option><option>eri</option></select></label>
+          <label>OS <select name="os_family"><option>linux</option><option>windows</option><option>managed</option></select></label>
+          <label>Segment <select name="segment"><option>startup</option><option>sme</option><option>enterprise</option><option>public_sector</option><option>reseller</option></select></label>
+          <label>Country <select name="country"><option>FR</option><option>DE</option><option>UK</option><option>BE</option><option>ES</option></select></label>
+          <label>Support Plan <select name="support_plan"><option>basic</option><option>standard</option><option>premium</option><option>critical</option></select></label>
+
+          <label>CPU Cores <input name="cpu_cores" type="number" value="8" /></label>
+          <label>RAM GB <input name="ram_gb" type="number" value="16" /></label>
+          <label>Disk TB <input name="disk_tb" type="number" step="0.01" value="2.0" /></label>
+          <label>Age Days <input name="age_days" type="number" value="1339" /></label>
+          <label>Has GPU <input name="has_gpu" type="number" min="0" max="1" value="0" /></label>
+          <label>Managed <input name="is_managed" type="number" min="0" max="1" value="0" /></label>
+
+          <label>CPU % <input name="cpu_util_pct" type="number" step="0.01" value="42.27" /></label>
+          <label>RAM % <input name="ram_util_pct" type="number" step="0.01" value="41.65" /></label>
+          <label>Disk % <input name="disk_util_pct" type="number" step="0.01" value="35.07" /></label>
+          <label>Net In GB <input name="net_in_gb" type="number" step="0.01" value="248.26" /></label>
+          <label>Net Out GB <input name="net_out_gb" type="number" step="0.01" value="297.19" /></label>
+          <label>Temperature C <input name="temperature_c" type="number" step="0.01" value="52.19" /></label>
+          <label>Backup Success <input name="backup_success" type="number" min="0" max="1" value="1" /></label>
+          <label>Maintenance <input name="scheduled_maintenance" type="number" min="0" max="1" value="0" /></label>
+          <label>Rack Temp C <input name="avg_rack_temperature_c" type="number" step="0.01" value="54.13" /></label>
+          <label>Power MW <input name="power_usage_mw" type="number" step="0.001" value="0.625" /></label>
+          <label>Latency MS <input name="network_latency_ms" type="number" step="0.01" value="18.55" /></label>
+          <label>Capacity % <input name="capacity_used_pct" type="number" step="0.01" value="68.56" /></label>
+          <label>Contract Months <input name="contract_months" type="number" value="36" /></label>
+          <label>Tenure Days <input name="tenure_days" type="number" value="1197" /></label>
+          <label>Monthly Spend EUR <input name="monthly_spend_eur" type="number" step="0.01" value="130.34" /></label>
+          <label>Observation Count <input name="observation_count" type="number" value="34" /></label>
+
+          <button type="submit">Segment server</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <div id="segmentation-summary" class="result">No segmentation yet.</div>
+        <pre id="segmentation-output"></pre>
+      </div>
+    </section>
+
     <script>
       const numericFields = new Set([
         "cpu_cores", "ram_gb", "disk_tb", "age_days", "has_gpu", "is_managed", "cpu_util_pct", "ram_util_pct",
         "disk_util_pct", "net_in_gb", "net_out_gb", "temperature_c", "backup_success", "scheduled_maintenance",
         "avg_rack_temperature_c", "power_usage_mw", "network_latency_ms", "support_tickets", "capacity_used_pct",
-        "contract_months", "tenure_days", "monthly_spend_eur", "recent_support_tickets"
+        "contract_months", "tenure_days", "monthly_spend_eur", "recent_support_tickets", "observation_count"
       ]);
 
       function formInputs(form) {
@@ -120,7 +168,7 @@
       }
 
       function showTab(tabName) {
-        const selectedTab = tabName === "support" ? "support" : "incident";
+        const selectedTab = ["incident", "support", "segmentation"].includes(tabName) ? tabName : "incident";
         for (const item of document.querySelectorAll(".tab-button, .tab-panel")) item.classList.remove("active");
         document.querySelector(`[data-tab="${selectedTab}"]`).classList.add("active");
         document.getElementById(`${selectedTab}-panel`).classList.add("active");
@@ -163,6 +211,22 @@
           ? `Forecast: ${data.prediction.toFixed(2)} tickets ± ${data.metadata.error_margin_mae.toFixed(2)} MAE | expected range: ${data.metadata.expected_range_low.toFixed(2)}-${data.metadata.expected_range_high.toFixed(2)} | rounded: ${data.rounded_prediction}`
           : "Support forecast failed";
         document.getElementById("support-output").textContent = JSON.stringify({ updated_at: new Date().toISOString(), sent: inputs, received: data }, null, 2);
+      });
+
+      document.getElementById("segmentation-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const inputs = formInputs(event.target);
+        const response = await fetch("/predict-segmentation", {
+          method: "POST",
+          cache: "no-store",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ inputs })
+        });
+        const data = await response.json();
+        document.getElementById("segmentation-summary").textContent = response.ok
+          ? `Cluster ${data.cluster}: ${data.profile_name} | driver: ${data.profile_driver || "n/a"}`
+          : "Segmentation failed";
+        document.getElementById("segmentation-output").textContent = JSON.stringify({ updated_at: new Date().toISOString(), sent: inputs, received: data }, null, 2);
       });
 
       document.getElementById("risky-example").addEventListener("click", () => {

@@ -5,8 +5,16 @@ import json
 
 import pandas as pd
 
-from app.model_loader import load_model, load_support_metadata, load_support_model
-from app.schemas import IncidentFeatures, PredictionRequest, PredictionResponse, SupportForecastFeatures, SupportForecastResponse
+from app.model_loader import load_model, load_segmentation_metadata, load_segmentation_model, load_support_metadata, load_support_model
+from app.schemas import (
+    IncidentFeatures,
+    PredictionRequest,
+    PredictionResponse,
+    SegmentationFeatures,
+    SegmentationResponse,
+    SupportForecastFeatures,
+    SupportForecastResponse,
+)
 
 
 MODEL_THRESHOLD = 0.21265613301105626
@@ -42,6 +50,8 @@ SUPPORT_RAW_FEATURE_COLUMNS = [
     "day_of_month",
     "days_since_start",
 ]
+
+SEGMENTATION_CATEGORICAL_COLUMNS = ["server_type", "region", "os_family", "segment", "country", "support_plan"]
 
 RAW_FEATURE_COLUMNS = [
     "server_type",
@@ -86,6 +96,11 @@ def _payload_to_features(payload: PredictionRequest) -> IncidentFeatures:
 def _payload_to_support_features(payload: PredictionRequest) -> SupportForecastFeatures:
     data: dict[str, Any] = payload.inputs or payload.model_extra or {}
     return SupportForecastFeatures(**data)
+
+
+def _payload_to_segmentation_features(payload: PredictionRequest) -> SegmentationFeatures:
+    data: dict[str, Any] = payload.inputs or payload.model_extra or {}
+    return SegmentationFeatures(**data)
 
 
 def _risk_level(probability: float) -> str:
@@ -176,6 +191,60 @@ def build_support_feature_frame(features: SupportForecastFeatures) -> pd.DataFra
     return pd.DataFrame([row])
 
 
+def build_segmentation_feature_frame(features: SegmentationFeatures) -> pd.DataFrame:
+    data = features.model_dump()
+    observation_count = max(int(data["observation_count"]), 1)
+
+    row: dict[str, Any] = {}
+    aggregate_specs = {
+        "cpu_util_pct": ["mean", "max", "std"],
+        "ram_util_pct": ["mean", "max", "std"],
+        "disk_util_pct": ["mean", "max", "std"],
+        "net_in_gb": ["mean", "max", "sum"],
+        "net_out_gb": ["mean", "max", "sum"],
+        "temperature_c": ["mean", "max", "std"],
+        "network_latency_ms": ["mean", "max", "std"],
+        "capacity_used_pct": ["mean", "max", "std"],
+    }
+    for column, stats in aggregate_specs.items():
+        for stat in stats:
+            if stat == "std":
+                row[f"{column}_{stat}"] = 0
+            elif stat == "sum":
+                row[f"{column}_{stat}"] = data[column] * observation_count
+            else:
+                row[f"{column}_{stat}"] = data[column]
+
+    row["backup_success_mean"] = data["backup_success"]
+    row["backup_success_min"] = data["backup_success"]
+    row["scheduled_maintenance_mean"] = data["scheduled_maintenance"]
+    row["avg_rack_temperature_c_mean"] = data["avg_rack_temperature_c"]
+    row["avg_rack_temperature_c_max"] = data["avg_rack_temperature_c"]
+    row["power_usage_mw_mean"] = data["power_usage_mw"]
+    row["power_usage_mw_max"] = data["power_usage_mw"]
+    row["cpu_cores_first"] = data["cpu_cores"]
+    row["ram_gb_first"] = data["ram_gb"]
+    row["disk_tb_first"] = data["disk_tb"]
+    row["age_days_first"] = data["age_days"]
+    row["has_gpu_first"] = data["has_gpu"]
+    row["is_managed_first"] = data["is_managed"]
+    row["contract_months_first"] = data["contract_months"]
+    row["tenure_days_first"] = data["tenure_days"]
+    row["monthly_spend_eur_first"] = data["monthly_spend_eur"]
+    row["observation_count"] = observation_count
+
+    for column in SEGMENTATION_CATEGORICAL_COLUMNS:
+        row[column] = data[column]
+
+    row["utilization_pressure_mean"] = (
+        row["cpu_util_pct_mean"] + row["ram_util_pct_mean"] + row["disk_util_pct_mean"] + row["capacity_used_pct_mean"]
+    ) / 4
+    row["network_total_gb_sum"] = row["net_in_gb_sum"] + row["net_out_gb_sum"]
+    row["thermal_cpu_pressure"] = row["temperature_c_mean"] * row["cpu_util_pct_mean"] / 100
+    row["backup_failure_rate"] = 1 - row["backup_success_mean"]
+    return pd.DataFrame([row])
+
+
 def predict(payload: PredictionRequest) -> PredictionResponse:
     model = load_model()
     features = _payload_to_features(payload)
@@ -221,6 +290,38 @@ def predict_support(payload: PredictionRequest) -> SupportForecastResponse:
             "rmse": model_metadata.get("rmse"),
             "r2": model_metadata.get("r2"),
             "selection_metric": model_metadata.get("selection_metric"),
+            "input_hash": _input_hash(features.model_dump()),
+            "feature_count": int(feature_frame.shape[1]),
+        },
+    )
+
+
+def predict_segmentation(payload: PredictionRequest) -> SegmentationResponse:
+    model = load_segmentation_model()
+    metadata = load_segmentation_metadata()
+    features = _payload_to_segmentation_features(payload)
+    feature_frame = build_segmentation_feature_frame(features)
+    cluster = int(model.predict(feature_frame)[0])
+    profiles = {int(profile["cluster"]): profile for profile in metadata.get("profiles", [])}
+    profile = profiles.get(cluster, {})
+    probabilities = {}
+    if hasattr(model.named_steps["model"], "predict_proba"):
+        probabilities = {
+            str(index): float(value)
+            for index, value in enumerate(model.predict_proba(feature_frame)[0])
+        }
+
+    return SegmentationResponse(
+        cluster=cluster,
+        profile_name=str(profile.get("profile_name", "profil inconnu")),
+        profile_driver=profile.get("profile_driver"),
+        probabilities=probabilities,
+        metadata={
+            "model_loaded": True,
+            "model_type": metadata.get("model_type", "GaussianMixture"),
+            "n_clusters": metadata.get("n_clusters"),
+            "silhouette": metadata.get("silhouette"),
+            "server_id": features.server_id,
             "input_hash": _input_hash(features.model_dump()),
             "feature_count": int(feature_frame.shape[1]),
         },
