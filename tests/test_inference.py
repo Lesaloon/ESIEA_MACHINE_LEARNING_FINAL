@@ -5,8 +5,8 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT_DIR / "services" / "inference-service"))
 
-from app.predictor import build_anomaly_feature_frame, build_segmentation_feature_frame, build_support_feature_frame, predict_anomaly  # noqa: E402
-from app.schemas import IncidentFeatures, PredictionRequest, SegmentationFeatures, SupportForecastFeatures  # noqa: E402
+from app.predictor import build_anomaly_feature_frame, build_segmentation_feature_frame, build_support_feature_frame, predict_anomaly, predict_prioritization  # noqa: E402
+from app.schemas import IncidentFeatures, PredictionRequest, PrioritizationRequest, SegmentationFeatures, SupportForecastFeatures  # noqa: E402
 
 
 def test_support_feature_frame_contains_expected_features() -> None:
@@ -154,3 +154,78 @@ def test_anomaly_prediction_returns_explanations() -> None:
     assert response.top_explanations
     assert response.human_explanation
     assert {"feature", "impact", "reference"}.issubset(response.top_explanations[0])
+
+
+def test_prioritization_returns_ranked_recommendations() -> None:
+    inputs = [
+        {
+            "date": "2026-01-03",
+            "server_id": "S000069",
+            "server_type": "storage",
+            "region": "bhs",
+            "os_family": "linux",
+            "segment": "enterprise",
+            "country": "ES",
+            "support_plan": "basic",
+            "cpu_cores": 32,
+            "ram_gb": 4,
+            "disk_tb": 2.0,
+            "age_days": 1806,
+            "has_gpu": 0,
+            "is_managed": 0,
+            "cpu_util_pct": 31.22,
+            "ram_util_pct": 9.43,
+            "disk_util_pct": 78.63,
+            "net_in_gb": 71.16,
+            "net_out_gb": 121.81,
+            "temperature_c": 55.3,
+            "backup_success": 1,
+            "scheduled_maintenance": 0,
+            "avg_rack_temperature_c": 52.26,
+            "power_usage_mw": 0.54,
+            "network_latency_ms": 21.86,
+            "support_tickets": 3,
+            "capacity_used_pct": 52.25,
+            "contract_months": 24,
+            "tenure_days": 1099,
+            "monthly_spend_eur": 455.71,
+        },
+        {
+            "date": "2026-01-07",
+            "server_id": "S000049",
+            "server_type": "dedicated",
+            "region": "bhs",
+            "os_family": "managed",
+            "segment": "enterprise",
+            "country": "PL",
+            "support_plan": "standard",
+            "cpu_cores": 32,
+            "ram_gb": 16,
+            "disk_tb": 0.5,
+            "age_days": 2003,
+            "has_gpu": 0,
+            "is_managed": 1,
+            "cpu_util_pct": 95.3,
+            "ram_util_pct": 15.47,
+            "disk_util_pct": 37.45,
+            "net_in_gb": 44.79,
+            "net_out_gb": 462.83,
+            "temperature_c": 78.5,
+            "backup_success": 1,
+            "scheduled_maintenance": 1,
+            "avg_rack_temperature_c": 56.53,
+            "power_usage_mw": 0.779,
+            "network_latency_ms": 22.17,
+            "support_tickets": 9,
+            "capacity_used_pct": 80.38,
+            "contract_months": 1,
+            "tenure_days": 2181,
+            "monthly_spend_eur": 37.14,
+        },
+    ]
+
+    response = predict_prioritization(PrioritizationRequest(inputs=inputs, top_n=2))
+
+    assert len(response.recommendations) == 2
+    assert response.recommendations[0]["rank"] == 1
+    assert response.recommendations[0]["priority_score"] >= response.recommendations[1]["priority_score"]

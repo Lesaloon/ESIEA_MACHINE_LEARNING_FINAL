@@ -3,8 +3,8 @@ from pathlib import Path
 from fastapi import FastAPI, Response
 from fastapi.staticfiles import StaticFiles
 
-from app.predictor import predict, predict_anomaly, predict_segmentation, predict_support
-from app.schemas import AnomalyResponse, PredictionRequest, PredictionResponse, SegmentationResponse, SupportForecastResponse
+from app.predictor import predict, predict_anomaly, predict_prioritization, predict_segmentation, predict_support
+from app.schemas import AnomalyResponse, PredictionRequest, PredictionResponse, PrioritizationRequest, PrioritizationResponse, SegmentationResponse, SupportForecastResponse
 
 app = FastAPI(title="ML Inference Service")
 STATIC_DIR = Path(__file__).resolve().parents[1] / "static"
@@ -40,6 +40,11 @@ def make_segmentation_prediction(payload: PredictionRequest) -> SegmentationResp
 @app.post("/predict-anomaly", response_model=AnomalyResponse)
 def make_anomaly_prediction(payload: PredictionRequest) -> AnomalyResponse:
     return predict_anomaly(payload)
+
+
+@app.post("/prioritize-interventions", response_model=PrioritizationResponse)
+def make_prioritization(payload: PrioritizationRequest) -> PrioritizationResponse:
+    return predict_prioritization(payload)
 
 
 if STATIC_DIR.exists():

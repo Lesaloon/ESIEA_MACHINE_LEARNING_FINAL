@@ -9,6 +9,11 @@ class PredictionRequest(BaseModel):
     inputs: dict[str, Any] | None = None
 
 
+class PrioritizationRequest(BaseModel):
+    inputs: list[dict[str, Any]]
+    top_n: int = 50
+
+
 class IncidentFeatures(BaseModel):
     date: str = "2026-03-17"
     server_id: str = "SAMPLE_SERVER"
@@ -120,4 +125,9 @@ class AnomalyResponse(BaseModel):
     severity: str
     top_explanations: list[dict[str, Any]] = Field(default_factory=list)
     human_explanation: str = ""
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class PrioritizationResponse(BaseModel):
+    recommendations: list[dict[str, Any]] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)

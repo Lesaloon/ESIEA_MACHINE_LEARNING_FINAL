@@ -11,6 +11,8 @@ from app.model_loader import (
     load_anomaly_metadata,
     load_anomaly_model,
     load_model,
+    load_prioritization_metadata,
+    load_prioritization_model,
     load_segmentation_metadata,
     load_segmentation_model,
     load_support_metadata,
@@ -21,6 +23,8 @@ from app.schemas import (
     IncidentFeatures,
     PredictionRequest,
     PredictionResponse,
+    PrioritizationRequest,
+    PrioritizationResponse,
     SegmentationFeatures,
     SegmentationResponse,
     SupportForecastFeatures,
@@ -488,5 +492,66 @@ def predict_anomaly(payload: PredictionRequest) -> AnomalyResponse:
             "precision": metadata.get("precision"),
             "input_hash": _input_hash(features.model_dump()),
             "feature_count": int(feature_frame.shape[1]),
+        },
+    )
+
+
+def business_value_for_row(data: dict[str, Any]) -> float:
+    support_plan_weight = {"basic": 1.0, "standard": 1.2, "premium": 1.5, "critical": 2.0}.get(str(data.get("support_plan")), 1.0)
+    hardware_weight = 1 + 0.25 * float(data.get("has_gpu", 0)) + 0.15 * float(data.get("is_managed", 0))
+    pressure_weight = 1 + min(max(float(data.get("capacity_used_pct", 0)), 0), 100) / 200
+    return float(max(float(data.get("monthly_spend_eur", 10)), 10) * support_plan_weight * hardware_weight * pressure_weight)
+
+
+def predict_prioritization(payload: PrioritizationRequest) -> PrioritizationResponse:
+    model = load_prioritization_model()
+    metadata = load_prioritization_metadata()
+    rows = []
+    frames = []
+
+    for raw_input in payload.inputs:
+        features = IncidentFeatures(**raw_input)
+        frames.append(build_feature_frame(features))
+        dumped = features.model_dump()
+        rows.append(
+            {
+                "server_id": features.server_id,
+                "date": features.date,
+                "business_value": business_value_for_row(dumped),
+            }
+        )
+
+    if not frames:
+        return PrioritizationResponse(recommendations=[], metadata={"model_loaded": True, "input_count": 0})
+
+    feature_frame = pd.concat(frames, ignore_index=True)
+    probabilities = model.predict_proba(feature_frame)[:, 1]
+    recommendations = []
+    for row, probability in zip(rows, probabilities, strict=False):
+        priority_score = float(probability * row["business_value"])
+        recommendations.append(
+            {
+                "server_id": row["server_id"],
+                "date": row["date"],
+                "incident_probability": float(probability),
+                "business_value": row["business_value"],
+                "priority_score": priority_score,
+            }
+        )
+
+    recommendations = sorted(recommendations, key=lambda item: item["priority_score"], reverse=True)[: max(int(payload.top_n), 0)]
+    for rank, item in enumerate(recommendations, start=1):
+        item["rank"] = rank
+
+    return PrioritizationResponse(
+        recommendations=recommendations,
+        metadata={
+            "model_loaded": True,
+            "model_type": metadata.get("model_type", "HistGradientBoostingClassifier"),
+            "ranking_formula": metadata.get("ranking_formula", "priority_score = incident_probability * business_value"),
+            "requested_top_n": payload.top_n,
+            "input_count": len(payload.inputs),
+            "returned_count": len(recommendations),
+            "value_capture_rate_at_50": metadata.get("value_capture_rate"),
         },
     )

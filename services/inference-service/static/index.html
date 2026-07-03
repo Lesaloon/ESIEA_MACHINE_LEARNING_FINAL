@@ -15,7 +15,8 @@
       .tab-panel.active { display: block; }
       form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
       label { display: grid; gap: 4px; font-size: 13px; font-weight: 600; }
-      input, select { padding: 9px; border: 1px solid #cbd5e1; border-radius: 8px; font: inherit; }
+      input, select, textarea { padding: 9px; border: 1px solid #cbd5e1; border-radius: 8px; font: inherit; }
+      textarea { grid-column: 1 / -1; min-height: 260px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
       button[type="submit"], .example-button { grid-column: 1 / -1; padding: 12px; border: 0; border-radius: 8px; background: #2563eb; color: white; font-weight: 700; cursor: pointer; }
       button[type="submit"]:hover, .example-button:hover { background: #1d4ed8; }
       pre { white-space: pre-wrap; background: #0f172a; color: #d1fae5; padding: 16px; border-radius: 10px; overflow-x: auto; }
@@ -34,6 +35,7 @@
       <a class="tab-button" data-tab="anomaly" href="#anomaly">Anomaly detection</a>
       <a class="tab-button" data-tab="support" href="#support">Support forecast</a>
       <a class="tab-button" data-tab="segmentation" href="#segmentation">Server segmentation</a>
+      <a class="tab-button" data-tab="prioritization" href="#prioritization">Intervention priority</a>
     </nav>
 
     <section id="incident-panel" class="tab-panel active">
@@ -207,6 +209,22 @@
       </div>
     </section>
 
+    <section id="prioritization-panel" class="tab-panel">
+      <div class="card">
+        <button id="priority-example" class="example-button" type="button">Fill priority batch example</button>
+        <form id="priority-form">
+          <label>Top N <input name="top_n" type="number" value="3" /></label>
+          <textarea id="priority-inputs" name="inputs_json"></textarea>
+          <button type="submit">Prioritize interventions</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <div id="priority-summary" class="result">No prioritization yet.</div>
+        <pre id="priority-output"></pre>
+      </div>
+    </section>
+
     <script>
       const numericFields = new Set([
         "cpu_cores", "ram_gb", "disk_tb", "age_days", "has_gpu", "is_managed", "cpu_util_pct", "ram_util_pct",
@@ -224,7 +242,7 @@
       }
 
       function showTab(tabName) {
-        const selectedTab = ["incident", "anomaly", "support", "segmentation"].includes(tabName) ? tabName : "incident";
+        const selectedTab = ["incident", "anomaly", "support", "segmentation", "prioritization"].includes(tabName) ? tabName : "incident";
         for (const item of document.querySelectorAll(".tab-button, .tab-panel")) item.classList.remove("active");
         document.querySelector(`[data-tab="${selectedTab}"]`).classList.add("active");
         document.getElementById(`${selectedTab}-panel`).classList.add("active");
@@ -311,6 +329,23 @@
         document.getElementById("segmentation-output").textContent = JSON.stringify({ updated_at: new Date().toISOString(), sent: inputs, received: data }, null, 2);
       });
 
+      document.getElementById("priority-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const topN = Number(new FormData(event.target).get("top_n"));
+        const inputs = JSON.parse(document.getElementById("priority-inputs").value);
+        const response = await fetch("/prioritize-interventions", {
+          method: "POST",
+          cache: "no-store",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ inputs, top_n: topN })
+        });
+        const data = await response.json();
+        document.getElementById("priority-summary").textContent = response.ok
+          ? `Returned ${data.metadata.returned_count}/${data.metadata.input_count} recommendations | formula: ${data.metadata.ranking_formula}`
+          : "Prioritization failed";
+        document.getElementById("priority-output").textContent = JSON.stringify({ updated_at: new Date().toISOString(), sent: { inputs, top_n: topN }, received: data }, null, 2);
+      });
+
       function fillSegmentationExample(values) {
         for (const [key, value] of Object.entries(values)) {
           const field = document.querySelector(`#segmentation-panel [name="${key}"]`);
@@ -357,6 +392,41 @@
           const field = document.querySelector(`#anomaly-panel [name="${key}"]`);
           if (field) field.value = value;
         }
+      });
+
+      document.getElementById("priority-example").addEventListener("click", () => {
+        document.getElementById("priority-inputs").value = JSON.stringify([
+          {
+            date: "2026-01-03", server_id: "S000069", server_type: "storage", region: "bhs",
+            os_family: "linux", segment: "enterprise", country: "ES", support_plan: "basic",
+            cpu_cores: 32, ram_gb: 4, disk_tb: 2.0, age_days: 1806, has_gpu: 0, is_managed: 0,
+            cpu_util_pct: 31.22, ram_util_pct: 9.43, disk_util_pct: 78.63, net_in_gb: 71.16,
+            net_out_gb: 121.81, temperature_c: 55.3, backup_success: 1, scheduled_maintenance: 0,
+            avg_rack_temperature_c: 52.26, power_usage_mw: 0.54, network_latency_ms: 21.86,
+            support_tickets: 3, capacity_used_pct: 52.25, contract_months: 24, tenure_days: 1099,
+            monthly_spend_eur: 455.71
+          },
+          {
+            date: "2026-01-07", server_id: "S000049", server_type: "dedicated", region: "bhs",
+            os_family: "managed", segment: "enterprise", country: "PL", support_plan: "standard",
+            cpu_cores: 32, ram_gb: 16, disk_tb: 0.5, age_days: 2003, has_gpu: 0, is_managed: 1,
+            cpu_util_pct: 95.3, ram_util_pct: 15.47, disk_util_pct: 37.45, net_in_gb: 44.79,
+            net_out_gb: 462.83, temperature_c: 78.5, backup_success: 1, scheduled_maintenance: 1,
+            avg_rack_temperature_c: 56.53, power_usage_mw: 0.779, network_latency_ms: 22.17,
+            support_tickets: 9, capacity_used_pct: 80.38, contract_months: 1, tenure_days: 2181,
+            monthly_spend_eur: 37.14
+          },
+          {
+            date: "2026-03-17", server_id: "S000000", server_type: "vps", region: "waw",
+            os_family: "linux", segment: "startup", country: "DE", support_plan: "critical",
+            cpu_cores: 8, ram_gb: 16, disk_tb: 2.0, age_days: 1339, has_gpu: 0, is_managed: 0,
+            cpu_util_pct: 82.84, ram_util_pct: 46.65, disk_util_pct: 28.8, net_in_gb: 249.31,
+            net_out_gb: 191.95, temperature_c: 63.74, backup_success: 1, scheduled_maintenance: 0,
+            avg_rack_temperature_c: 53.59, power_usage_mw: 0.65, network_latency_ms: 23.24,
+            support_tickets: 5, capacity_used_pct: 66.77, contract_months: 36, tenure_days: 1197,
+            monthly_spend_eur: 130.34
+          }
+        ], null, 2);
       });
 
       document.getElementById("risky-example").addEventListener("click", () => {
