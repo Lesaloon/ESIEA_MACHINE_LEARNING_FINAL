@@ -5,6 +5,7 @@ from pathlib import Path
 ROOT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT_DIR / "services" / "inference-service"))
 
+from app import main as gateway  # noqa: E402
 from app.predictor import build_anomaly_feature_frame, build_segmentation_feature_frame, build_support_feature_frame, predict_anomaly, predict_prioritization  # noqa: E402
 from app.schemas import IncidentFeatures, PredictionRequest, PrioritizationRequest, SegmentationFeatures, SupportForecastFeatures  # noqa: E402
 
@@ -229,3 +230,43 @@ def test_prioritization_returns_ranked_recommendations() -> None:
     assert len(response.recommendations) == 2
     assert response.recommendations[0]["rank"] == 1
     assert response.recommendations[0]["priority_score"] >= response.recommendations[1]["priority_score"]
+
+
+def test_gateway_prioritization_aggregates_model_services(monkeypatch) -> None:
+    calls = []
+
+    def fake_call_model_service(base_url: str, path: str, payload: dict) -> dict:
+        calls.append((base_url, path, payload))
+        if path == "/predict":
+            return {"incident_probability": 0.5, "prediction": 1, "metadata": {}}
+        if path == "/predict-anomaly":
+            return {"is_anomaly": True, "anomaly_score": 0.8, "severity": "high", "metadata": {}}
+        if path == "/predict-segmentation":
+            return {"cluster": 1, "profile_name": "serveurs temperature elevee", "metadata": {}}
+        raise AssertionError(f"Unexpected path: {path}")
+
+    monkeypatch.setattr(gateway, "call_model_service", fake_call_model_service)
+
+    response = gateway.make_prioritization(
+        PrioritizationRequest(
+            inputs=[
+                {
+                    "server_id": "S000001",
+                    "date": "2026-01-03",
+                    "support_plan": "critical",
+                    "has_gpu": 1,
+                    "is_managed": 1,
+                    "capacity_used_pct": 80,
+                    "monthly_spend_eur": 100,
+                }
+            ],
+            top_n=1,
+        )
+    )
+
+    assert len(calls) == 3
+    assert response.recommendations[0]["rank"] == 1
+    assert response.recommendations[0]["priority_score"] == 196.0
+    assert response.recommendations[0]["is_anomaly"] is True
+    assert response.recommendations[0]["segment_cluster"] == 1
+    assert response.metadata["called_services"] == ["incident", "anomaly", "segmentation"]
