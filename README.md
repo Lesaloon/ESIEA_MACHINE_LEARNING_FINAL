@@ -47,6 +47,10 @@ Les resultats affiches par le frontend incluent directement une explication loca
 
 Le rapport Partie 7 est disponible dans `reports/interpretability/INTERPRETABILITY_REPORT.md`.
 
+## Architecture
+
+Le schema Mermaid de l'architecture de production est disponible dans `reports/architecture/ARCHITECTURE.md`.
+
 Pour personnaliser la configuration locale, copier `.env.example` vers `.env`.
 
 ## Notes
