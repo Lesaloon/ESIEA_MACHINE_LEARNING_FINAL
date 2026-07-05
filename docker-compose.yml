@@ -5,7 +5,7 @@ services:
       dockerfile: services/frontend/Dockerfile
     container_name: ml-frontend
     ports:
-      - "${FRONTEND_PORT:-8080}:80"
+      - "${FRONTEND_PORT:-8000}:80"
     depends_on:
       - api-gateway
     networks:
@@ -22,7 +22,7 @@ services:
       SEGMENTATION_SERVICE_URL: http://segmentation-inference-service:8000
       ANOMALY_SERVICE_URL: http://anomaly-inference-service:8000
     ports:
-      - "${API_GATEWAY_PORT:-8000}:8000"
+      - "${API_GATEWAY_PORT:-8001}:8000"
     depends_on:
       - incident-inference-service
       - support-inference-service

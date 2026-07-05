@@ -27,8 +27,8 @@ docker compose up --build
 
 Services Docker principaux :
 
-- `frontend` : Nginx public sur `http://localhost:8080` par defaut.
-- `api-gateway` : API publique sur `http://localhost:8000` par defaut.
+- `frontend` : Nginx public sur `http://localhost:8000` par defaut.
+- `api-gateway` : API publique sur `http://localhost:8001` par defaut.
 - `incident-inference-service` : API interne du modele incident.
 - `support-inference-service` : API interne du modele support.
 - `segmentation-inference-service` : API interne du modele segmentation.
