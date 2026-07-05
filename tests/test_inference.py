@@ -7,7 +7,7 @@ sys.path.insert(0, str(ROOT_DIR / "services" / "api-gateway"))
 sys.path.insert(0, str(ROOT_DIR / "services" / "shared-inference"))
 
 from app import main as gateway  # noqa: E402
-from inference.predictor import build_anomaly_feature_frame, build_segmentation_feature_frame, build_support_feature_frame, predict_anomaly, predict_prioritization  # noqa: E402
+from inference.predictor import build_anomaly_feature_frame, build_segmentation_feature_frame, build_support_feature_frame, predict, predict_anomaly, predict_prioritization, predict_segmentation, predict_support  # noqa: E402
 from inference.schemas import IncidentFeatures, PredictionRequest, PrioritizationRequest, SegmentationFeatures, SupportForecastFeatures  # noqa: E402
 
 
@@ -156,6 +156,112 @@ def test_anomaly_prediction_returns_explanations() -> None:
     assert response.top_explanations
     assert response.human_explanation
     assert {"feature", "impact", "reference"}.issubset(response.top_explanations[0])
+
+
+def test_incident_prediction_returns_explanations() -> None:
+    payload = PredictionRequest(
+        inputs={
+            "date": "2026-03-17",
+            "server_id": "S000000",
+            "server_type": "vps",
+            "region": "waw",
+            "os_family": "linux",
+            "segment": "startup",
+            "country": "DE",
+            "support_plan": "critical",
+            "cpu_cores": 8,
+            "ram_gb": 16,
+            "disk_tb": 2.0,
+            "age_days": 1339,
+            "has_gpu": 0,
+            "is_managed": 0,
+            "cpu_util_pct": 82.84,
+            "ram_util_pct": 46.65,
+            "disk_util_pct": 28.8,
+            "net_in_gb": 249.31,
+            "net_out_gb": 191.95,
+            "temperature_c": 63.74,
+            "backup_success": 1,
+            "scheduled_maintenance": 0,
+            "avg_rack_temperature_c": 53.59,
+            "power_usage_mw": 0.65,
+            "network_latency_ms": 23.24,
+            "support_tickets": 5,
+            "capacity_used_pct": 66.77,
+            "contract_months": 36,
+            "tenure_days": 1197,
+            "monthly_spend_eur": 130.34,
+        }
+    )
+
+    response = predict(payload)
+
+    assert response.top_explanations
+    assert response.human_explanation
+    assert {"feature", "impact", "method"}.issubset(response.top_explanations[0])
+
+
+def test_support_prediction_returns_explanations() -> None:
+    payload = PredictionRequest(
+        inputs={
+            "date": "2026-03-17",
+            "region": "waw",
+            "scheduled_maintenance": 0,
+            "avg_rack_temperature_c": 53.59,
+            "power_usage_mw": 0.65,
+            "network_latency_ms": 23.24,
+            "capacity_used_pct": 66.77,
+            "recent_support_tickets": 5,
+        }
+    )
+
+    response = predict_support(payload)
+
+    assert response.top_explanations
+    assert response.human_explanation
+    assert {"feature", "impact", "method"}.issubset(response.top_explanations[0])
+
+
+def test_segmentation_prediction_returns_explanation() -> None:
+    payload = PredictionRequest(
+        inputs={
+            "server_id": "S000000",
+            "server_type": "vps",
+            "region": "waw",
+            "os_family": "linux",
+            "segment": "startup",
+            "country": "DE",
+            "support_plan": "critical",
+            "cpu_cores": 8,
+            "ram_gb": 16,
+            "disk_tb": 2.0,
+            "age_days": 1339,
+            "has_gpu": 0,
+            "is_managed": 0,
+            "cpu_util_pct": 42.27,
+            "ram_util_pct": 41.65,
+            "disk_util_pct": 35.07,
+            "net_in_gb": 248.26,
+            "net_out_gb": 297.19,
+            "temperature_c": 52.19,
+            "backup_success": 1,
+            "scheduled_maintenance": 0,
+            "avg_rack_temperature_c": 54.13,
+            "power_usage_mw": 0.625,
+            "network_latency_ms": 18.55,
+            "capacity_used_pct": 68.56,
+            "contract_months": 36,
+            "tenure_days": 1197,
+            "monthly_spend_eur": 130.34,
+            "observation_count": 34,
+        }
+    )
+
+    response = predict_segmentation(payload)
+
+    assert response.top_explanations
+    assert response.human_explanation
+    assert response.top_explanations[0]["method"] == "cluster_profile"
 
 
 def test_prioritization_returns_ranked_recommendations() -> None:

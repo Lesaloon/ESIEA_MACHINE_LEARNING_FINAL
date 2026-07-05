@@ -21,8 +21,11 @@
       button[type="submit"]:hover, .example-button:hover { background: #1d4ed8; }
       pre { white-space: pre-wrap; background: #0f172a; color: #d1fae5; padding: 16px; border-radius: 10px; overflow-x: auto; }
       .result { font-size: 20px; font-weight: 700; }
+      .human-explanation { margin: 12px 0; color: #334155; line-height: 1.45; }
       .explanations { margin: 12px 0 0; padding-left: 20px; }
       .explanations li { margin: 6px 0; }
+      .impact-positive { color: #b91c1c; }
+      .impact-negative { color: #047857; }
       @media (max-width: 760px) { form { grid-template-columns: 1fr; } .tabs { flex-direction: column; } }
     </style>
   </head>
@@ -83,6 +86,8 @@
 
       <div class="card">
         <div id="summary" class="result">No incident prediction yet.</div>
+        <p id="incident-human-explanation" class="human-explanation"></p>
+        <ul id="incident-explanations" class="explanations"></ul>
         <pre id="output"></pre>
       </div>
     </section>
@@ -156,6 +161,8 @@
 
       <div class="card">
         <div id="support-summary" class="result">No support forecast yet.</div>
+        <p id="support-human-explanation" class="human-explanation"></p>
+        <ul id="support-explanations" class="explanations"></ul>
         <pre id="support-output"></pre>
       </div>
     </section>
@@ -205,6 +212,8 @@
 
       <div class="card">
         <div id="segmentation-summary" class="result">No segmentation yet.</div>
+        <p id="segmentation-human-explanation" class="human-explanation"></p>
+        <ul id="segmentation-explanations" class="explanations"></ul>
         <pre id="segmentation-output"></pre>
       </div>
     </section>
@@ -255,6 +264,27 @@
       window.addEventListener("hashchange", () => showTab(window.location.hash.replace("#", "")));
       showTab(window.location.hash.replace("#", ""));
 
+      function formatImpact(item) {
+        if (typeof item.impact !== "number") return "n/a";
+        const sign = item.impact >= 0 ? "+" : "";
+        return `${sign}${item.impact.toFixed(4)}`;
+      }
+
+      function renderExplanations(listId, humanId, data) {
+        const human = document.getElementById(humanId);
+        const list = document.getElementById(listId);
+        human.textContent = data.human_explanation || "";
+        list.innerHTML = "";
+        for (const item of data.top_explanations || []) {
+          const li = document.createElement("li");
+          const className = item.impact >= 0 ? "impact-positive" : "impact-negative";
+          const method = item.method ? ` | method: ${item.method}` : "";
+          const reference = item.reference !== undefined ? ` | reference: ${item.reference}` : "";
+          li.innerHTML = `<strong>${item.label || item.feature}</strong>: value ${item.value} | impact <span class="${className}">${formatImpact(item)}</span> | ${item.direction || "n/a"}${reference}${method}`;
+          list.appendChild(li);
+        }
+      }
+
       document.getElementById("prediction-form").addEventListener("submit", async (event) => {
         event.preventDefault();
         const inputs = formInputs(event.target);
@@ -268,6 +298,7 @@
         document.getElementById("summary").textContent = response.ok
           ? `Risk: ${data.risk_level} | probability: ${(data.incident_probability * 100).toFixed(4)}% | prediction: ${data.prediction} | input: ${data.metadata.input_hash}`
           : "Inference failed";
+        renderExplanations("incident-explanations", "incident-human-explanation", response.ok ? data : {});
         document.getElementById("output").textContent = JSON.stringify({ updated_at: new Date().toISOString(), sent: inputs, received: data }, null, 2);
       });
 
@@ -284,16 +315,7 @@
         document.getElementById("anomaly-summary").textContent = response.ok
           ? `Anomaly: ${data.is_anomaly} | severity: ${data.severity} | score: ${data.anomaly_score.toFixed(4)} | threshold: ${data.threshold.toFixed(4)}`
           : "Anomaly detection failed";
-        document.getElementById("anomaly-human-explanation").textContent = response.ok ? data.human_explanation : "";
-        const explanationList = document.getElementById("anomaly-explanations");
-        explanationList.innerHTML = "";
-        if (response.ok) {
-          for (const item of data.top_explanations) {
-            const li = document.createElement("li");
-            li.textContent = `${item.label}: ${item.value} vs normal ${item.reference} (${item.direction}, impact ${item.impact.toFixed(4)})`;
-            explanationList.appendChild(li);
-          }
-        }
+        renderExplanations("anomaly-explanations", "anomaly-human-explanation", response.ok ? data : {});
         document.getElementById("anomaly-output").textContent = JSON.stringify({ updated_at: new Date().toISOString(), sent: inputs, received: data }, null, 2);
       });
 
@@ -310,6 +332,7 @@
         document.getElementById("support-summary").textContent = response.ok
           ? `Forecast: ${data.prediction.toFixed(2)} tickets ± ${data.metadata.error_margin_mae.toFixed(2)} MAE | expected range: ${data.metadata.expected_range_low.toFixed(2)}-${data.metadata.expected_range_high.toFixed(2)} | rounded: ${data.rounded_prediction}`
           : "Support forecast failed";
+        renderExplanations("support-explanations", "support-human-explanation", response.ok ? data : {});
         document.getElementById("support-output").textContent = JSON.stringify({ updated_at: new Date().toISOString(), sent: inputs, received: data }, null, 2);
       });
 
@@ -326,6 +349,7 @@
         document.getElementById("segmentation-summary").textContent = response.ok
           ? `Cluster ${data.cluster}: ${data.profile_name} | driver: ${data.profile_driver || "n/a"}`
           : "Segmentation failed";
+        renderExplanations("segmentation-explanations", "segmentation-human-explanation", response.ok ? data : {});
         document.getElementById("segmentation-output").textContent = JSON.stringify({ updated_at: new Date().toISOString(), sent: inputs, received: data }, null, 2);
       });
 

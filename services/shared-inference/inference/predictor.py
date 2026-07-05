@@ -4,6 +4,7 @@ import hashlib
 import json
 from numbers import Number
 
+import numpy as np
 import pandas as pd
 from sklearn.pipeline import Pipeline
 
@@ -31,6 +32,7 @@ from inference.schemas import (
 
 
 MODEL_THRESHOLD = 0.21265613301105626
+_EXPLAINER_CACHE: dict[int, Any] = {}
 
 HISTORY_COLUMNS = [
     "cpu_util_pct",
@@ -312,6 +314,7 @@ def feature_direction(value: Any, reference: Any) -> str:
 
 
 def readable_feature_name(feature: str) -> str:
+    clean_feature = feature.split("__", 1)[-1]
     names = {
         "cpu_util_pct": "CPU usage",
         "ram_util_pct": "RAM usage",
@@ -334,7 +337,167 @@ def readable_feature_name(feature: str) -> str:
         "contract_months": "contract duration",
         "monthly_spend_eur": "monthly spend",
     }
-    return names.get(feature, feature.replace("_", " "))
+    return names.get(clean_feature, clean_feature.replace("_", " "))
+
+
+def _json_value(value: Any) -> Any:
+    if hasattr(value, "item"):
+        return value.item()
+    if isinstance(value, np.ndarray):
+        return value.tolist()
+    return value
+
+
+def _feature_names_after_transforms(model: Pipeline) -> list[str]:
+    names = list(model.named_steps["preprocessor"].get_feature_names_out())
+    if "variance_filter" in model.named_steps:
+        mask = model.named_steps["variance_filter"].get_support()
+        names = [name for name, keep in zip(names, mask) if keep]
+    if "selector" in model.named_steps:
+        mask = model.named_steps["selector"].get_support()
+        names = [name for name, keep in zip(names, mask) if keep]
+    return names
+
+
+def _shap_explainer(estimator: object) -> Any | None:
+    cache_key = id(estimator)
+    if cache_key in _EXPLAINER_CACHE:
+        return _EXPLAINER_CACHE[cache_key]
+    try:
+        import shap
+    except ImportError:
+        return None
+    explainer = shap.TreeExplainer(estimator)
+    _EXPLAINER_CACHE[cache_key] = explainer
+    return explainer
+
+
+def _select_shap_values(raw_values: Any, class_index: int | None = None) -> np.ndarray:
+    if isinstance(raw_values, list):
+        selected = raw_values[class_index or 0]
+        return np.asarray(selected)[0]
+
+    values = np.asarray(raw_values)
+    if values.ndim == 3:
+        return values[0, :, class_index or 0]
+    if values.ndim == 2:
+        return values[0]
+    return values
+
+
+def explain_tree_pipeline(
+    model: Pipeline,
+    feature_frame: pd.DataFrame,
+    *,
+    class_index: int | None = None,
+    top_n: int = 5,
+) -> tuple[list[dict[str, Any]], str]:
+    transformed = model[:-1].transform(feature_frame)
+    estimator = model.named_steps["model"]
+    explainer = _shap_explainer(estimator)
+    if explainer is None:
+        return explain_by_permutation(model, feature_frame, class_index=class_index, top_n=top_n)
+
+    feature_names = _feature_names_after_transforms(model)
+    shap_values = _select_shap_values(explainer.shap_values(transformed), class_index=class_index)
+    dense_values = np.asarray(transformed[0]).ravel()
+    explanations = []
+    for index, impact in enumerate(shap_values):
+        feature = feature_names[index] if index < len(feature_names) else f"feature_{index}"
+        explanations.append(
+            {
+                "feature": feature,
+                "label": readable_feature_name(feature),
+                "value": _json_value(dense_values[index]) if index < len(dense_values) else None,
+                "impact": float(impact),
+                "abs_impact": float(abs(impact)),
+                "direction": "increases_prediction" if impact >= 0 else "decreases_prediction",
+                "method": "shap",
+            }
+        )
+    return sorted(explanations, key=lambda item: item["abs_impact"], reverse=True)[:top_n], ""
+
+
+def explain_by_permutation(
+    model: Pipeline,
+    feature_frame: pd.DataFrame,
+    *,
+    class_index: int | None = None,
+    top_n: int = 5,
+) -> tuple[list[dict[str, Any]], str]:
+    if class_index is None:
+        base_prediction = float(model.predict(feature_frame)[0])
+    else:
+        base_prediction = float(model.predict_proba(feature_frame)[0, class_index])
+
+    explanations = []
+    numeric_columns = feature_frame.select_dtypes(include="number").columns.tolist()
+    for feature in numeric_columns:
+        value = feature_frame.loc[0, feature]
+        perturbed = feature_frame.copy()
+        perturbed.loc[0, feature] = 0
+        if class_index is None:
+            new_prediction = float(model.predict(perturbed)[0])
+        else:
+            new_prediction = float(model.predict_proba(perturbed)[0, class_index])
+        impact = base_prediction - new_prediction
+        explanations.append(
+            {
+                "feature": feature,
+                "label": readable_feature_name(feature),
+                "value": _json_value(value),
+                "reference": 0,
+                "impact": float(impact),
+                "abs_impact": float(abs(impact)),
+                "direction": "increases_prediction" if impact >= 0 else "decreases_prediction",
+                "method": "permutation_fallback",
+            }
+        )
+    return sorted(explanations, key=lambda item: item["abs_impact"], reverse=True)[:top_n], ""
+
+
+def incident_human_explanation(explanations: list[dict[str, Any]], probability: float) -> str:
+    if not explanations:
+        return "Aucun facteur dominant n'a ete identifie; le risque vient de la combinaison globale des signaux."
+    drivers = ", ".join(item["label"] for item in explanations[:3])
+    return f"Le modele estime un risque incident de {probability * 100:.2f} %. Les facteurs qui expliquent le plus ce score sont: {drivers}."
+
+
+def support_human_explanation(explanations: list[dict[str, Any]], prediction: float) -> str:
+    if not explanations:
+        return "Aucun facteur dominant n'a ete identifie; la prevision vient de la combinaison globale des signaux regionaux."
+    drivers = ", ".join(item["label"] for item in explanations[:3])
+    return f"La prevision est de {prediction:.2f} tickets. Les facteurs les plus influents sont: {drivers}."
+
+
+def segmentation_explanations(profile: dict[str, Any], probabilities: dict[str, float]) -> tuple[list[dict[str, Any]], str]:
+    driver = profile.get("profile_driver") or "aucun ecart dominant"
+    profile_name = str(profile.get("profile_name", "profil inconnu"))
+    cluster = profile.get("cluster")
+    confidence = probabilities.get(str(cluster)) if cluster is not None else None
+    explanations = [
+        {
+            "feature": "cluster_profile",
+            "label": "profil de cluster",
+            "value": profile_name,
+            "impact": float(confidence) if isinstance(confidence, Number) else 0.0,
+            "abs_impact": float(confidence) if isinstance(confidence, Number) else 0.0,
+            "direction": "assigned_profile",
+            "method": "cluster_profile",
+        },
+        {
+            "feature": "profile_driver",
+            "label": "raison du profil",
+            "value": driver,
+            "impact": 0.0,
+            "abs_impact": 0.0,
+            "direction": "descriptive",
+            "method": "cluster_profile",
+        },
+    ]
+    confidence_text = f" avec une probabilite de cluster de {confidence * 100:.1f} %" if isinstance(confidence, Number) else ""
+    human_explanation = f"Ce serveur est classe dans le profil '{profile_name}'{confidence_text}. Raison principale: {driver}."
+    return explanations, human_explanation
 
 
 def explain_anomaly(model: Pipeline, feature_frame: pd.DataFrame, metadata: dict[str, object], base_score: float) -> tuple[list[dict[str, Any]], str]:
@@ -367,6 +530,8 @@ def explain_anomaly(model: Pipeline, feature_frame: pd.DataFrame, metadata: dict
                 "reference": reference,
                 "direction": feature_direction(current_value, reference),
                 "impact": float(impact),
+                "abs_impact": float(abs(impact)),
+                "method": "reference_perturbation",
             }
         )
 
@@ -385,14 +550,18 @@ def predict(payload: PredictionRequest) -> PredictionResponse:
     feature_frame = build_feature_frame(features)
     probability = float(model.predict_proba(feature_frame)[0, 1])
     prediction = int(probability >= MODEL_THRESHOLD)
+    top_explanations, _ = explain_tree_pipeline(model, feature_frame, class_index=1)
 
     return PredictionResponse(
         prediction=prediction,
         incident_probability=probability,
         risk_level=_risk_level(probability),
+        top_explanations=top_explanations,
+        human_explanation=incident_human_explanation(top_explanations, probability),
         metadata={
             "model_loaded": True,
             "model_type": "RandomForestClassifier",
+            "explanation_method": top_explanations[0].get("method") if top_explanations else "none",
             "threshold": MODEL_THRESHOLD,
             "server_id": features.server_id,
             "date": features.date,
@@ -409,13 +578,17 @@ def predict_support(payload: PredictionRequest) -> SupportForecastResponse:
     feature_frame = build_support_feature_frame(features)
     prediction = float(max(model.predict(feature_frame)[0], 0))
     error_margin = model_metadata.get("mae")
+    top_explanations, _ = explain_tree_pipeline(model, feature_frame)
 
     return SupportForecastResponse(
         prediction=prediction,
         rounded_prediction=int(round(prediction)),
+        top_explanations=top_explanations,
+        human_explanation=support_human_explanation(top_explanations, prediction),
         metadata={
             "model_loaded": True,
             "model_type": model_metadata.get("model_type", "ExtraTreesRegressor"),
+            "explanation_method": top_explanations[0].get("method") if top_explanations else "none",
             "region": features.region,
             "date": features.date,
             "error_margin_mae": error_margin,
@@ -444,15 +617,19 @@ def predict_segmentation(payload: PredictionRequest) -> SegmentationResponse:
             str(index): float(value)
             for index, value in enumerate(model.predict_proba(feature_frame)[0])
         }
+    top_explanations, human_explanation = segmentation_explanations(profile, probabilities)
 
     return SegmentationResponse(
         cluster=cluster,
         profile_name=str(profile.get("profile_name", "profil inconnu")),
         profile_driver=profile.get("profile_driver"),
         probabilities=probabilities,
+        top_explanations=top_explanations,
+        human_explanation=human_explanation,
         metadata={
             "model_loaded": True,
             "model_type": metadata.get("model_type", "GaussianMixture"),
+            "explanation_method": "cluster_profile",
             "n_clusters": metadata.get("n_clusters"),
             "silhouette": metadata.get("silhouette"),
             "server_id": features.server_id,
@@ -483,6 +660,7 @@ def predict_anomaly(payload: PredictionRequest) -> AnomalyResponse:
         metadata={
             "model_loaded": True,
             "model_type": metadata.get("model_type", "LocalOutlierFactor"),
+            "explanation_method": "reference_perturbation",
             "server_id": features.server_id,
             "date": features.date,
             "average_precision": metadata.get("average_precision"),

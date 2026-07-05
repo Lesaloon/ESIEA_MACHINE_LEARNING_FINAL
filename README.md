@@ -36,6 +36,17 @@ Services Docker principaux :
 
 Le frontend Nginx proxifie les appels API vers le gateway. Le gateway appelle les services d'inference et agrege leurs resultats, notamment pour la priorisation des interventions.
 
+## Interpretabilite
+
+Les resultats affiches par le frontend incluent directement une explication locale:
+
+- incident : SHAP sur le `RandomForestClassifier` ;
+- support : SHAP sur le `ExtraTreesRegressor` ;
+- segmentation : interpretation par profil de cluster ;
+- anomalie : perturbation locale vers les valeurs normales de reference.
+
+Le rapport Partie 7 est disponible dans `reports/interpretability/INTERPRETABILITY_REPORT.md`.
+
 Pour personnaliser la configuration locale, copier `.env.example` vers `.env`.
 
 ## Notes

@@ -54,6 +54,8 @@ class PredictionResponse(BaseModel):
     prediction: int
     incident_probability: float
     risk_level: str
+    top_explanations: list[dict[str, Any]] = Field(default_factory=list)
+    human_explanation: str = ""
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -74,6 +76,8 @@ class SupportForecastFeatures(BaseModel):
 class SupportForecastResponse(BaseModel):
     prediction: float
     rounded_prediction: int
+    top_explanations: list[dict[str, Any]] = Field(default_factory=list)
+    human_explanation: str = ""
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -114,6 +118,8 @@ class SegmentationResponse(BaseModel):
     profile_name: str
     profile_driver: str | None = None
     probabilities: dict[str, float] = Field(default_factory=dict)
+    top_explanations: list[dict[str, Any]] = Field(default_factory=list)
+    human_explanation: str = ""
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
