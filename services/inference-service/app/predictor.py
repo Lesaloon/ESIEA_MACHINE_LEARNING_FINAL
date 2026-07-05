@@ -11,8 +11,6 @@ from app.model_loader import (
     load_anomaly_metadata,
     load_anomaly_model,
     load_model,
-    load_prioritization_metadata,
-    load_prioritization_model,
     load_segmentation_metadata,
     load_segmentation_model,
     load_support_metadata,
@@ -503,43 +501,73 @@ def business_value_for_row(data: dict[str, Any]) -> float:
     return float(max(float(data.get("monthly_spend_eur", 10)), 10) * support_plan_weight * hardware_weight * pressure_weight)
 
 
+def anomaly_multiplier(score: float, threshold: float) -> float:
+    margin = score - threshold
+    if margin >= 0.1:
+        return 1.6
+    if margin >= 0.03:
+        return 1.35
+    if margin >= 0:
+        return 1.15
+    return 1.0
+
+
+def segmentation_multiplier(profile_name: str) -> float:
+    if "temperature" in profile_name:
+        return 1.25
+    if "stockage" in profile_name:
+        return 1.15
+    return 1.0
+
+
 def predict_prioritization(payload: PrioritizationRequest) -> PrioritizationResponse:
-    model = load_prioritization_model()
-    metadata = load_prioritization_metadata()
+    incident_model = load_model()
+    anomaly_model = load_anomaly_model()
+    anomaly_metadata = load_anomaly_metadata()
+    segmentation_model = load_segmentation_model()
+    segmentation_metadata = load_segmentation_metadata()
+    segmentation_profiles = {int(profile["cluster"]): profile for profile in segmentation_metadata.get("profiles", [])}
     rows = []
-    frames = []
 
     for raw_input in payload.inputs:
         features = IncidentFeatures(**raw_input)
-        frames.append(build_feature_frame(features))
         dumped = features.model_dump()
+        incident_frame = build_feature_frame(features)
+        anomaly_frame = build_anomaly_feature_frame(features)
+        segmentation_features = SegmentationFeatures(**{**dumped, "observation_count": raw_input.get("observation_count", 1)})
+        segmentation_frame = build_segmentation_feature_frame(segmentation_features)
+
+        incident_probability = float(incident_model.predict_proba(incident_frame)[0, 1])
+        anomaly_score_value = score_anomaly_frame(anomaly_model, anomaly_frame)
+        anomaly_threshold = float(anomaly_metadata.get("threshold", 0.0))
+        anomaly_factor = anomaly_multiplier(anomaly_score_value, anomaly_threshold)
+        segment_cluster = int(segmentation_model.predict(segmentation_frame)[0])
+        segment_profile = segmentation_profiles.get(segment_cluster, {})
+        segment_name = str(segment_profile.get("profile_name", "profil inconnu"))
+        segment_factor = segmentation_multiplier(segment_name)
+        value = business_value_for_row(dumped)
+        priority_score = incident_probability * value
+
         rows.append(
             {
                 "server_id": features.server_id,
                 "date": features.date,
-                "business_value": business_value_for_row(dumped),
+                "incident_probability": incident_probability,
+                "business_value": value,
+                "anomaly_score": anomaly_score_value,
+                "is_anomaly": anomaly_score_value >= anomaly_threshold,
+                "anomaly_context_multiplier": anomaly_factor,
+                "segment_cluster": segment_cluster,
+                "segment_profile": segment_name,
+                "segmentation_context_multiplier": segment_factor,
+                "priority_score": float(priority_score),
             }
         )
 
-    if not frames:
+    if not rows:
         return PrioritizationResponse(recommendations=[], metadata={"model_loaded": True, "input_count": 0})
 
-    feature_frame = pd.concat(frames, ignore_index=True)
-    probabilities = model.predict_proba(feature_frame)[:, 1]
-    recommendations = []
-    for row, probability in zip(rows, probabilities, strict=False):
-        priority_score = float(probability * row["business_value"])
-        recommendations.append(
-            {
-                "server_id": row["server_id"],
-                "date": row["date"],
-                "incident_probability": float(probability),
-                "business_value": row["business_value"],
-                "priority_score": priority_score,
-            }
-        )
-
-    recommendations = sorted(recommendations, key=lambda item: item["priority_score"], reverse=True)[: max(int(payload.top_n), 0)]
+    recommendations = sorted(rows, key=lambda item: item["priority_score"], reverse=True)[: max(int(payload.top_n), 0)]
     for rank, item in enumerate(recommendations, start=1):
         item["rank"] = rank
 
@@ -547,11 +575,12 @@ def predict_prioritization(payload: PrioritizationRequest) -> PrioritizationResp
         recommendations=recommendations,
         metadata={
             "model_loaded": True,
-            "model_type": metadata.get("model_type", "HistGradientBoostingClassifier"),
-            "ranking_formula": metadata.get("ranking_formula", "priority_score = incident_probability * business_value"),
+            "model_type": "business_rules_existing_models",
+            "ranking_formula": "priority_score = incident_probability * business_value",
             "requested_top_n": payload.top_n,
             "input_count": len(payload.inputs),
             "returned_count": len(recommendations),
-            "value_capture_rate_at_50": metadata.get("value_capture_rate"),
+            "uses_models": ["incident_random_forest"],
+            "context_models": ["anomaly_local_outlier_factor", "server_segmentation_gaussian_mixture"],
         },
     )
