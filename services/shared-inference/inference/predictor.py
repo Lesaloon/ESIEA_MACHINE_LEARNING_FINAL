@@ -7,7 +7,7 @@ from numbers import Number
 import pandas as pd
 from sklearn.pipeline import Pipeline
 
-from app.model_loader import (
+from inference.model_loader import (
     load_anomaly_metadata,
     load_anomaly_model,
     load_model,
@@ -16,7 +16,7 @@ from app.model_loader import (
     load_support_metadata,
     load_support_model,
 )
-from app.schemas import (
+from inference.schemas import (
     AnomalyResponse,
     IncidentFeatures,
     PredictionRequest,

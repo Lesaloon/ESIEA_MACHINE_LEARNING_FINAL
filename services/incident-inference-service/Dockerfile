@@ -2,11 +2,11 @@ FROM python:3.13-slim
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY services/incident-inference-service/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY app/ ./app/
-COPY static/ ./static/
+COPY services/shared-inference/inference ./inference
+COPY services/incident-inference-service/app ./app
 
 EXPOSE 8000
 

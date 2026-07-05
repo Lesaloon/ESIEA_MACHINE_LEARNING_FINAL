@@ -3,11 +3,12 @@ from pathlib import Path
 
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT_DIR / "services" / "inference-service"))
+sys.path.insert(0, str(ROOT_DIR / "services" / "api-gateway"))
+sys.path.insert(0, str(ROOT_DIR / "services" / "shared-inference"))
 
 from app import main as gateway  # noqa: E402
-from app.predictor import build_anomaly_feature_frame, build_segmentation_feature_frame, build_support_feature_frame, predict_anomaly, predict_prioritization  # noqa: E402
-from app.schemas import IncidentFeatures, PredictionRequest, PrioritizationRequest, SegmentationFeatures, SupportForecastFeatures  # noqa: E402
+from inference.predictor import build_anomaly_feature_frame, build_segmentation_feature_frame, build_support_feature_frame, predict_anomaly, predict_prioritization  # noqa: E402
+from inference.schemas import IncidentFeatures, PredictionRequest, PrioritizationRequest, SegmentationFeatures, SupportForecastFeatures  # noqa: E402
 
 
 def test_support_feature_frame_contains_expected_features() -> None:

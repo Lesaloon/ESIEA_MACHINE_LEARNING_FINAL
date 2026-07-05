@@ -1,66 +1,71 @@
 services:
-  inference-service:
+  frontend:
     build:
-      context: ./services/inference-service
-    container_name: ml-inference-service
-    environment:
-      INCIDENT_SERVICE_URL: http://incident-model-service:8000
-      SUPPORT_SERVICE_URL: http://support-model-service:8000
-      SEGMENTATION_SERVICE_URL: http://segmentation-model-service:8000
-      ANOMALY_SERVICE_URL: http://anomaly-model-service:8000
+      context: .
+      dockerfile: services/frontend/Dockerfile
+    container_name: ml-frontend
     ports:
-      - "${INFERENCE_SERVICE_PORT:-8000}:8000"
+      - "${FRONTEND_PORT:-8080}:80"
     depends_on:
-      - incident-model-service
-      - support-model-service
-      - segmentation-model-service
-      - anomaly-model-service
+      - api-gateway
     networks:
       - ml-network
 
-  incident-model-service:
+  api-gateway:
     build:
-      context: ./services/inference-service
-    container_name: ml-incident-model-service
-    command: ["uvicorn", "app.model_main:app", "--host", "0.0.0.0", "--port", "8000"]
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
+    container_name: ml-api-gateway
     environment:
-      MODEL_SERVICE_TYPE: incident
+      INCIDENT_SERVICE_URL: http://incident-inference-service:8000
+      SUPPORT_SERVICE_URL: http://support-inference-service:8000
+      SEGMENTATION_SERVICE_URL: http://segmentation-inference-service:8000
+      ANOMALY_SERVICE_URL: http://anomaly-inference-service:8000
+    ports:
+      - "${API_GATEWAY_PORT:-8000}:8000"
+    depends_on:
+      - incident-inference-service
+      - support-inference-service
+      - segmentation-inference-service
+      - anomaly-inference-service
+    networks:
+      - ml-network
+
+  incident-inference-service:
+    build:
+      context: .
+      dockerfile: services/incident-inference-service/Dockerfile
+    container_name: ml-incident-inference-service
     volumes:
       - ./models:/models
     networks:
       - ml-network
 
-  support-model-service:
+  support-inference-service:
     build:
-      context: ./services/inference-service
-    container_name: ml-support-model-service
-    command: ["uvicorn", "app.model_main:app", "--host", "0.0.0.0", "--port", "8000"]
-    environment:
-      MODEL_SERVICE_TYPE: support
+      context: .
+      dockerfile: services/support-inference-service/Dockerfile
+    container_name: ml-support-inference-service
     volumes:
       - ./models:/models
     networks:
       - ml-network
 
-  segmentation-model-service:
+  segmentation-inference-service:
     build:
-      context: ./services/inference-service
-    container_name: ml-segmentation-model-service
-    command: ["uvicorn", "app.model_main:app", "--host", "0.0.0.0", "--port", "8000"]
-    environment:
-      MODEL_SERVICE_TYPE: segmentation
+      context: .
+      dockerfile: services/segmentation-inference-service/Dockerfile
+    container_name: ml-segmentation-inference-service
     volumes:
       - ./models:/models
     networks:
       - ml-network
 
-  anomaly-model-service:
+  anomaly-inference-service:
     build:
-      context: ./services/inference-service
-    container_name: ml-anomaly-model-service
-    command: ["uvicorn", "app.model_main:app", "--host", "0.0.0.0", "--port", "8000"]
-    environment:
-      MODEL_SERVICE_TYPE: anomaly
+      context: .
+      dockerfile: services/anomaly-inference-service/Dockerfile
+    container_name: ml-anomaly-inference-service
     volumes:
       - ./models:/models
     networks:

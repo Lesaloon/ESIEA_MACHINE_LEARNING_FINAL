@@ -6,7 +6,13 @@ Projet ML conteneurise pour prioriser les operations preventives sur une infrast
 
 - `data/` : donnees brutes, transformees et predictions generees.
 - `models/` : registre, artefacts et metadonnees des modeles.
-- `services/inference-service/` : API gateway et frontend. Le gateway appelle les services modele internes.
+- `services/frontend/` : frontend statique servi par Nginx.
+- `services/api-gateway/` : API publique qui route vers les services d'inference internes.
+- `services/incident-inference-service/` : microservice d'inference du modele incident.
+- `services/support-inference-service/` : microservice d'inference du modele support.
+- `services/segmentation-inference-service/` : microservice d'inference du modele segmentation.
+- `services/anomaly-inference-service/` : microservice d'inference du modele anomalie.
+- `services/shared-inference/` : code commun de schemas, feature engineering et chargement des artefacts.
 - `services/model-storage/` : service ou conteneur dedie au stockage des modeles.
 - `shared/` : configuration, constantes, logger et utilitaires communs.
 - `notebooks/` : notebooks d'exploration et d'experimentation.
@@ -21,13 +27,14 @@ docker compose up --build
 
 Services Docker principaux :
 
-- `inference-service` : gateway public + frontend sur le port `8000`.
-- `incident-model-service` : API interne du modele incident.
-- `support-model-service` : API interne du modele support.
-- `segmentation-model-service` : API interne du modele segmentation.
-- `anomaly-model-service` : API interne du modele anomalie.
+- `frontend` : Nginx public sur `http://localhost:8080` par defaut.
+- `api-gateway` : API publique sur `http://localhost:8000` par defaut.
+- `incident-inference-service` : API interne du modele incident.
+- `support-inference-service` : API interne du modele support.
+- `segmentation-inference-service` : API interne du modele segmentation.
+- `anomaly-inference-service` : API interne du modele anomalie.
 
-Le frontend appelle uniquement le gateway. Le gateway appelle les services modele et agrege leurs resultats, notamment pour la priorisation des interventions.
+Le frontend Nginx proxifie les appels API vers le gateway. Le gateway appelle les services d'inference et agrege leurs resultats, notamment pour la priorisation des interventions.
 
 Pour personnaliser la configuration locale, copier `.env.example` vers `.env`.
 

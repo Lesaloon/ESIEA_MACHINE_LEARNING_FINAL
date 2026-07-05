@@ -1,52 +1,43 @@
-from pathlib import Path
 import json
 import os
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
-from fastapi import FastAPI, HTTPException, Response
-from fastapi.staticfiles import StaticFiles
+from fastapi import FastAPI, HTTPException
 
-from app.schemas import AnomalyResponse, PredictionRequest, PredictionResponse, PrioritizationRequest, PrioritizationResponse, SegmentationResponse, SupportForecastResponse
+from inference.schemas import PredictionRequest, PrioritizationRequest, PrioritizationResponse
 
-app = FastAPI(title="ML Inference Gateway")
-STATIC_DIR = Path(__file__).resolve().parents[1] / "static"
 
-INCIDENT_SERVICE_URL = os.getenv("INCIDENT_SERVICE_URL", "http://incident-model-service:8000")
-SUPPORT_SERVICE_URL = os.getenv("SUPPORT_SERVICE_URL", "http://support-model-service:8000")
-SEGMENTATION_SERVICE_URL = os.getenv("SEGMENTATION_SERVICE_URL", "http://segmentation-model-service:8000")
-ANOMALY_SERVICE_URL = os.getenv("ANOMALY_SERVICE_URL", "http://anomaly-model-service:8000")
+app = FastAPI(title="ML API Gateway")
+
+INCIDENT_SERVICE_URL = os.getenv("INCIDENT_SERVICE_URL", "http://incident-inference-service:8000")
+SUPPORT_SERVICE_URL = os.getenv("SUPPORT_SERVICE_URL", "http://support-inference-service:8000")
+SEGMENTATION_SERVICE_URL = os.getenv("SEGMENTATION_SERVICE_URL", "http://segmentation-inference-service:8000")
+ANOMALY_SERVICE_URL = os.getenv("ANOMALY_SERVICE_URL", "http://anomaly-inference-service:8000")
 
 
 @app.get("/health")
 def health_check() -> dict[str, str]:
-    return {"status": "ok", "service_type": "gateway"}
+    return {"status": "ok", "service_type": "api-gateway"}
 
 
-@app.middleware("http")
-async def add_no_cache_headers(request, call_next) -> Response:
-    response = await call_next(request)
-    response.headers["Cache-Control"] = "no-store"
-    return response
-
-
-@app.post("/predict", response_model=PredictionResponse)
-def make_prediction(payload: PredictionRequest) -> PredictionResponse:
+@app.post("/predict")
+def make_prediction(payload: PredictionRequest) -> dict:
     return call_model_service(INCIDENT_SERVICE_URL, "/predict", payload.model_dump())
 
 
-@app.post("/predict-support", response_model=SupportForecastResponse)
-def make_support_prediction(payload: PredictionRequest) -> SupportForecastResponse:
+@app.post("/predict-support")
+def make_support_prediction(payload: PredictionRequest) -> dict:
     return call_model_service(SUPPORT_SERVICE_URL, "/predict-support", payload.model_dump())
 
 
-@app.post("/predict-segmentation", response_model=SegmentationResponse)
-def make_segmentation_prediction(payload: PredictionRequest) -> SegmentationResponse:
+@app.post("/predict-segmentation")
+def make_segmentation_prediction(payload: PredictionRequest) -> dict:
     return call_model_service(SEGMENTATION_SERVICE_URL, "/predict-segmentation", payload.model_dump())
 
 
-@app.post("/predict-anomaly", response_model=AnomalyResponse)
-def make_anomaly_prediction(payload: PredictionRequest) -> AnomalyResponse:
+@app.post("/predict-anomaly")
+def make_anomaly_prediction(payload: PredictionRequest) -> dict:
     return call_model_service(ANOMALY_SERVICE_URL, "/predict-anomaly", payload.model_dump())
 
 
@@ -112,7 +103,3 @@ def business_value_for_row(data: dict) -> float:
     hardware_weight = 1 + 0.25 * float(data.get("has_gpu", 0)) + 0.15 * float(data.get("is_managed", 0))
     pressure_weight = 1 + min(max(float(data.get("capacity_used_pct", 0)), 0), 100) / 200
     return float(max(float(data.get("monthly_spend_eur", 10)), 10) * support_plan_weight * hardware_weight * pressure_weight)
-
-
-if STATIC_DIR.exists():
-    app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
