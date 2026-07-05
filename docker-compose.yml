@@ -3,11 +3,66 @@ services:
     build:
       context: ./services/inference-service
     container_name: ml-inference-service
+    environment:
+      INCIDENT_SERVICE_URL: http://incident-model-service:8000
+      SUPPORT_SERVICE_URL: http://support-model-service:8000
+      SEGMENTATION_SERVICE_URL: http://segmentation-model-service:8000
+      ANOMALY_SERVICE_URL: http://anomaly-model-service:8000
     ports:
       - "${INFERENCE_SERVICE_PORT:-8000}:8000"
+    depends_on:
+      - incident-model-service
+      - support-model-service
+      - segmentation-model-service
+      - anomaly-model-service
+    networks:
+      - ml-network
+
+  incident-model-service:
+    build:
+      context: ./services/inference-service
+    container_name: ml-incident-model-service
+    command: ["uvicorn", "app.model_main:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      MODEL_SERVICE_TYPE: incident
     volumes:
       - ./models:/models
-      - ./data:/data
+    networks:
+      - ml-network
+
+  support-model-service:
+    build:
+      context: ./services/inference-service
+    container_name: ml-support-model-service
+    command: ["uvicorn", "app.model_main:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      MODEL_SERVICE_TYPE: support
+    volumes:
+      - ./models:/models
+    networks:
+      - ml-network
+
+  segmentation-model-service:
+    build:
+      context: ./services/inference-service
+    container_name: ml-segmentation-model-service
+    command: ["uvicorn", "app.model_main:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      MODEL_SERVICE_TYPE: segmentation
+    volumes:
+      - ./models:/models
+    networks:
+      - ml-network
+
+  anomaly-model-service:
+    build:
+      context: ./services/inference-service
+    container_name: ml-anomaly-model-service
+    command: ["uvicorn", "app.model_main:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      MODEL_SERVICE_TYPE: anomaly
+    volumes:
+      - ./models:/models
     networks:
       - ml-network
 
