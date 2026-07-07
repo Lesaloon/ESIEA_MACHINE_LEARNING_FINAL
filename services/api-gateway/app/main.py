@@ -99,7 +99,58 @@ def call_model_service(base_url: str, path: str, payload: dict) -> dict:
 
 
 def business_value_for_row(data: dict) -> float:
-    support_plan_weight = {"basic": 1.0, "standard": 1.2, "premium": 1.5, "critical": 2.0}.get(str(data.get("support_plan")), 1.0)
-    hardware_weight = 1 + 0.25 * float(data.get("has_gpu", 0)) + 0.15 * float(data.get("is_managed", 0))
-    pressure_weight = 1 + min(max(float(data.get("capacity_used_pct", 0)), 0), 100) / 200
-    return float(max(float(data.get("monthly_spend_eur", 10)), 10) * support_plan_weight * hardware_weight * pressure_weight)
+    """
+    Estimate the business value of a customer/account row.
+
+    The score is based on:
+    - monthly spend
+    - support plan level
+    - whether the customer uses GPU hardware
+    - whether the customer is managed
+    - how much capacity they are using
+    """
+
+    # 1. Higher support plans increase the value
+    support_plan = str(data.get("support_plan", "basic")).lower()
+
+    support_plan_weights = {
+        "basic": 1.0,
+        "standard": 1.2,
+        "premium": 1.5,
+        "critical": 2.0,
+    }
+
+    support_plan_weight = support_plan_weights.get(support_plan, 1.0)
+
+    # 2. Hardware / account setup adjustments
+    has_gpu = int(data.get("has_gpu", 0))
+    is_managed = int(data.get("is_managed", 0))
+
+    hardware_weight = (
+        1
+        + 0.25 * has_gpu
+        + 0.15 * is_managed
+    )
+
+    # 3. Capacity pressure adjustment
+    capacity_used_pct = float(data.get("capacity_used_pct", 0))
+
+    # Keep capacity between 0% and 100%
+    capacity_used_pct = min(max(capacity_used_pct, 0), 100)
+
+    # At 100% capacity, this adds a 50% boost
+    pressure_weight = 1 + capacity_used_pct / 200
+
+    # 4. Monthly spend, with a minimum value of €10
+    monthly_spend_eur = float(data.get("monthly_spend_eur", 10))
+    monthly_spend_eur = max(monthly_spend_eur, 10)
+
+    # 5. Final business value score
+    business_value = (
+        monthly_spend_eur
+        * support_plan_weight
+        * hardware_weight
+        * pressure_weight
+    )
+
+    return float(business_value)
