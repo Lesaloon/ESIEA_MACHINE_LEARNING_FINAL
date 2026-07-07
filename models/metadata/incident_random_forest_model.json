@@ -1,14 +1,28 @@
 {
   "name": "incident_random_forest_model",
-  "problem": "incident_next_7d binary classification",
+  "model": "ExtraTreesClassifier",
   "artifact_path": "models/artifacts/incident_random_forest_model.pkl",
+  "run_model_path": "train/incident_prediction/runs/20260707_194414/final_raw_extra_trees_model.pkl",
   "saved_with": "joblib",
-  "model_type": "RandomForestClassifier",
-  "threshold": 0.21265613301105626,
-  "average_precision": 0.14510021054776476,
-  "roc_auc": 0.8200738924528935,
-  "precision": 0.21753246753246752,
-  "recall": 0.3526315789473684,
-  "f1": 0.26907630522088355,
-  "source_run": "train/incident_prediction/runs/20260702_145243"
+  "model_type": "ExtraTreesClassifier",
+  "data_source": "data/raw/ml_training_dataset.csv",
+  "include_ids": false,
+  "threshold": 0.30277832918899966,
+  "average_precision": 0.19832827502957198,
+  "roc_auc": 0.953774416958265,
+  "best_threshold": 0.30277832918899966,
+  "precision": 0.21248339973439576,
+  "recall": 0.9815950920245399,
+  "f1": 0.3493449781659389,
+  "metrics_path": "train/incident_prediction/runs/20260707_194414/final_metrics.json",
+  "topk_path": "train/incident_prediction/runs/20260707_194414/topk_metrics.csv",
+  "train_rows": 59400,
+  "test_rows": 14850,
+  "train_positive_rate": 0.02196969696969697,
+  "test_positive_rate": 0.021952861952861953,
+  "best_params": {
+    "model__n_estimators": "400",
+    "model__min_samples_leaf": "3",
+    "model__class_weight": "balanced"
+  }
 }

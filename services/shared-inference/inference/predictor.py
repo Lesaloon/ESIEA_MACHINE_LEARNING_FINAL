@@ -11,6 +11,7 @@ from sklearn.pipeline import Pipeline
 from inference.model_loader import (
     load_anomaly_metadata,
     load_anomaly_model,
+    load_incident_metadata,
     load_model,
     load_segmentation_metadata,
     load_segmentation_model,
@@ -41,9 +42,9 @@ HISTORY_COLUMNS = [
     "temperature_c",
     "net_in_gb",
     "net_out_gb",
-    "network_latency_ms",
-    "support_tickets",
-    "capacity_used_pct",
+    "network_latency_ms_prev_day",
+    "support_tickets_prev_day",
+    "capacity_used_pct_prev_day",
 ]
 
 SUPPORT_HISTORY_COLUMNS = [
@@ -61,6 +62,7 @@ SUPPORT_RAW_FEATURE_COLUMNS = [
     "power_usage_mw",
     "network_latency_ms",
     "capacity_used_pct",
+    "support_tickets",
     "day_of_week",
     "day_of_month",
     "days_since_start",
@@ -102,6 +104,49 @@ RAW_FEATURE_COLUMNS = [
     "days_since_start",
 ]
 
+INCIDENT_RAW_FEATURE_COLUMNS = [
+    "server_type",
+    "region",
+    "os_family",
+    "cpu_cores",
+    "ram_gb",
+    "disk_tb",
+    "age_days",
+    "has_gpu",
+    "is_managed",
+    "cpu_util_pct",
+    "ram_util_pct",
+    "disk_util_pct",
+    "net_in_gb",
+    "net_out_gb",
+    "temperature_c",
+    "backup_success",
+    "scheduled_maintenance_prev_day",
+    "avg_rack_temperature_c_prev_day",
+    "power_usage_mw_prev_day",
+    "network_latency_ms_prev_day",
+    "support_tickets_prev_day",
+    "capacity_used_pct_prev_day",
+    "segment",
+    "country",
+    "contract_months",
+    "support_plan",
+    "tenure_days",
+    "monthly_spend_eur",
+    "day_of_week",
+    "day_of_month",
+    "days_since_start",
+]
+
+INCIDENT_REGION_INPUT_MAP = {
+    "scheduled_maintenance_prev_day": "scheduled_maintenance",
+    "avg_rack_temperature_c_prev_day": "avg_rack_temperature_c",
+    "power_usage_mw_prev_day": "power_usage_mw",
+    "network_latency_ms_prev_day": "network_latency_ms",
+    "support_tickets_prev_day": "support_tickets",
+    "capacity_used_pct_prev_day": "capacity_used_pct",
+}
+
 
 def _payload_to_features(payload: PredictionRequest) -> IncidentFeatures:
     data: dict[str, Any] = payload.inputs or payload.model_extra or {}
@@ -123,10 +168,10 @@ def _payload_to_anomaly_features(payload: PredictionRequest) -> IncidentFeatures
     return IncidentFeatures(**data)
 
 
-def _risk_level(probability: float) -> str:
+def _risk_level(probability: float, threshold: float = MODEL_THRESHOLD) -> str:
     if probability >= 0.5:
         return "critical"
-    if probability >= MODEL_THRESHOLD:
+    if probability >= threshold:
         return "high"
     if probability >= 0.1:
         return "medium"
@@ -149,7 +194,12 @@ def build_feature_frame(features: IncidentFeatures) -> pd.DataFrame:
     if data.get("days_since_start") is None:
         data["days_since_start"] = int((observed_date - pd.Timestamp("2026-01-01")).days)
 
-    row = {column: data[column] for column in RAW_FEATURE_COLUMNS}
+    row = {}
+    for column in INCIDENT_RAW_FEATURE_COLUMNS:
+        row[column] = data[INCIDENT_REGION_INPUT_MAP.get(column, column)]
+
+    for raw_column in INCIDENT_REGION_INPUT_MAP.values():
+        row[raw_column] = data[raw_column]
 
     for column in HISTORY_COLUMNS:
         # At online inference time we may only receive the current observation.
@@ -166,7 +216,7 @@ def build_feature_frame(features: IncidentFeatures) -> pd.DataFrame:
     row["network_total_gb"] = row["net_in_gb"] + row["net_out_gb"]
     row["network_balance_gb"] = row["net_in_gb"] - row["net_out_gb"]
     row["utilization_pressure"] = (
-        row["cpu_util_pct"] + row["ram_util_pct"] + row["disk_util_pct"] + row["capacity_used_pct"]
+        row["cpu_util_pct"] + row["ram_util_pct"] + row["disk_util_pct"] + row["capacity_used_pct_prev_day"]
     ) / 4
 
     return pd.DataFrame([row])
@@ -183,6 +233,7 @@ def build_support_feature_frame(features: SupportForecastFeatures) -> pd.DataFra
     if data.get("days_since_start") is None:
         data["days_since_start"] = int((observed_date - pd.Timestamp("2026-01-01")).days)
 
+    data["support_tickets"] = data["recent_support_tickets"]
     row = {column: data[column] for column in SUPPORT_RAW_FEATURE_COLUMNS}
     history_values = {
         "support_tickets": data["recent_support_tickets"],
@@ -546,23 +597,25 @@ def explain_anomaly(model: Pipeline, feature_frame: pd.DataFrame, metadata: dict
 
 def predict(payload: PredictionRequest) -> PredictionResponse:
     model = load_model()
+    model_metadata = load_incident_metadata()
     features = _payload_to_features(payload)
     feature_frame = build_feature_frame(features)
+    threshold = float(model_metadata.get("threshold", MODEL_THRESHOLD))
     probability = float(model.predict_proba(feature_frame)[0, 1])
-    prediction = int(probability >= MODEL_THRESHOLD)
+    prediction = int(probability >= threshold)
     top_explanations, _ = explain_tree_pipeline(model, feature_frame, class_index=1)
 
     return PredictionResponse(
         prediction=prediction,
         incident_probability=probability,
-        risk_level=_risk_level(probability),
+        risk_level=_risk_level(probability, threshold),
         top_explanations=top_explanations,
         human_explanation=incident_human_explanation(top_explanations, probability),
         metadata={
             "model_loaded": True,
-            "model_type": "RandomForestClassifier",
+            "model_type": model_metadata.get("model_type", "RandomForestClassifier"),
             "explanation_method": top_explanations[0].get("method") if top_explanations else "none",
-            "threshold": MODEL_THRESHOLD,
+            "threshold": threshold,
             "server_id": features.server_id,
             "date": features.date,
             "input_hash": _input_hash(features.model_dump()),
