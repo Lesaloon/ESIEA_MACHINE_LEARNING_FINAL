@@ -9,21 +9,12 @@ from pathlib import Path
 import joblib
 import matplotlib
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer
-from sklearn.ensemble import ExtraTreesClassifier
-from sklearn.metrics import (
-    ConfusionMatrixDisplay,
-    average_precision_score,
-    confusion_matrix,
-    f1_score,
-    precision_recall_curve,
-    precision_score,
-    recall_score,
-    roc_auc_score,
-)
-from sklearn.model_selection import train_test_split
+from sklearn.dummy import DummyClassifier
+from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
+from sklearn.metrics import ConfusionMatrixDisplay, accuracy_score, classification_report, confusion_matrix, f1_score, precision_score, recall_score, roc_auc_score
+from sklearn.model_selection import RandomizedSearchCV, train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
@@ -37,22 +28,41 @@ OUTPUT_ROOT = ROOT_DIR / "train" / "incident_prediction" / "runs"
 ARTIFACT_PATH = ROOT_DIR / "models" / "artifacts" / "incident_random_forest_model.pkl"
 METADATA_PATH = ROOT_DIR / "models" / "metadata" / "incident_random_forest_model.json"
 TARGET = "incident_next_7d"
-OTHER_TARGETS = ["overload_anomaly"]
 RANDOM_STATE = 42
+CATEGORICAL_FEATURES = ["server_type", "region", "os_family", "segment", "country", "support_plan"]
+FEATURES_TO_SCALE = [
+    "cpu_cores",
+    "ram_gb",
+    "disk_tb",
+    "age_days",
+    "cpu_util_pct",
+    "ram_util_pct",
+    "disk_util_pct",
+    "net_in_gb",
+    "net_out_gb",
+    "temperature_c",
+    "avg_rack_temperature_c",
+    "power_usage_mw",
+    "network_latency_ms",
+    "capacity_used_pct",
+    "contract_months",
+    "tenure_days",
+    "monthly_spend_eur",
+]
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Train final raw ExtraTrees incident model.")
+    parser = argparse.ArgumentParser(description="Train final incident classification model on ml_training_dataset.csv.")
     parser.add_argument("--data-path", type=Path, default=DEFAULT_DATA_PATH)
     parser.add_argument("--test-size", type=float, default=0.2)
-    parser.add_argument("--include-ids", action="store_true", help="Keep server_id/customer_id as categorical features.")
-    parser.add_argument("--top-k", type=int, nargs="+", default=[50, 100, 250, 500])
+    parser.add_argument("--n-iter", type=int, default=3)
+    parser.add_argument("--cv", type=int, default=4)
     return parser.parse_args()
 
 
 def setup_logger(output_dir: Path) -> logging.Logger:
     output_dir.mkdir(parents=True, exist_ok=True)
-    logger = logging.getLogger("final_raw_extra_trees_incident")
+    logger = logging.getLogger("final_incident_classifier")
     logger.setLevel(logging.INFO)
     logger.handlers.clear()
 
@@ -67,96 +77,77 @@ def setup_logger(output_dir: Path) -> logging.Logger:
     return logger
 
 
-def load_data(data_path: Path, include_ids: bool, logger: logging.Logger) -> tuple[pd.DataFrame, pd.Series, pd.DataFrame]:
+def load_data(data_path: Path, logger: logging.Logger) -> tuple[pd.DataFrame, pd.Series, dict[str, object]]:
     logger.info("Loading %s", data_path.relative_to(ROOT_DIR))
     df = pd.read_csv(data_path)
-    df["date"] = pd.to_datetime(df["date"], errors="raise")
     logger.info("Raw shape: %s", df.shape)
-    logger.info("Target positive rate: %.4f", df[TARGET].mean())
 
-    traceability = df[["date", "server_id", TARGET]].copy()
-    drop_columns = [TARGET, *OTHER_TARGETS, "date"]
-    if not include_ids:
-        drop_columns.extend(["server_id", "customer_id"])
+    df_cleaned = df.dropna().drop(columns=["date"])
 
-    X = df.drop(columns=drop_columns)
-    y = df[TARGET]
-    logger.info("Feature shape: %s | include_ids=%s", X.shape, include_ids)
-    return X, y, traceability
+    X = df_cleaned.drop(columns=[TARGET, "overload_anomaly", "server_id", "customer_id"])
+    y = df_cleaned[TARGET]
+    logger.info("Feature shape: %s", X.shape)
+    logger.info("Target positive rate: %.4f", y.mean())
+
+    preprocessing = {
+        "categorical_features": [feature for feature in CATEGORICAL_FEATURES if feature in X.columns],
+        "scaled_features": [feature for feature in FEATURES_TO_SCALE if feature in X.columns],
+        "feature_columns": X.columns.tolist(),
+        "rows_after_cleaning": int(len(df_cleaned)),
+    }
+    return X, y, preprocessing
 
 
-def build_pipeline(X_train: pd.DataFrame) -> Pipeline:
-    numeric_features = X_train.select_dtypes(include="number").columns.tolist()
-    categorical_features = X_train.select_dtypes(include=["object", "string", "category"]).columns.tolist()
+def build_pipeline(model: object, feature_columns: list[str]) -> Pipeline:
+    categorical_features = [feature for feature in CATEGORICAL_FEATURES if feature in feature_columns]
+    scaled_features = [feature for feature in FEATURES_TO_SCALE if feature in feature_columns]
+    passthrough_features = [
+        feature for feature in feature_columns if feature not in categorical_features and feature not in scaled_features
+    ]
 
     preprocessor = ColumnTransformer(
         transformers=[
-            ("num", StandardScaler(), numeric_features),
-            ("cat", OneHotEncoder(handle_unknown="ignore", sparse_output=False), categorical_features),
-        ]
+            ("categorical", OneHotEncoder(drop="first", handle_unknown="ignore", sparse_output=False), categorical_features),
+            ("scaled_numeric", StandardScaler(), scaled_features),
+            ("passthrough", "passthrough", passthrough_features),
+        ],
+        remainder="drop",
     )
-
-    model = ExtraTreesClassifier(
-        n_estimators=400,
-        random_state=RANDOM_STATE,
-        min_samples_leaf=3,
-        class_weight="balanced",
-        n_jobs=-1,
-    )
-
     return Pipeline(steps=[("preprocessor", preprocessor), ("model", model)])
 
 
-def best_threshold(y_true: pd.Series, y_score: np.ndarray) -> tuple[float, dict[str, float]]:
-    precision, recall, thresholds = precision_recall_curve(y_true, y_score)
-    if len(thresholds) == 0:
-        return 0.5, {"precision": 0.0, "recall": 0.0, "f1": 0.0}
-
-    f1 = np.divide(
-        2 * precision[:-1] * recall[:-1],
-        precision[:-1] + recall[:-1],
-        out=np.zeros_like(thresholds, dtype=float),
-        where=(precision[:-1] + recall[:-1]) > 0,
-    )
-    index = int(np.nanargmax(f1))
-    return float(thresholds[index]), {
-        "precision": float(precision[index]),
-        "recall": float(recall[index]),
-        "f1": float(f1[index]),
+def model_definitions() -> dict[str, object]:
+    return {
+        "DummyClassifier": DummyClassifier(strategy="uniform", random_state=RANDOM_STATE),
+        "RandomForestClassifier": RandomForestClassifier(random_state=RANDOM_STATE, n_jobs=-1),
+        "GradientBoostingClassifier": GradientBoostingClassifier(random_state=RANDOM_STATE),
     }
 
 
-def topk_metrics(traceability: pd.DataFrame, y_score: np.ndarray, top_k_values: list[int]) -> pd.DataFrame:
-    scored = traceability.copy()
-    scored["risk_score"] = y_score
-    daily_total = scored.groupby("date")[TARGET].sum().rename("daily_positives")
-    rows = []
-
-    for top_k in top_k_values:
-        selected = scored.sort_values(["date", "risk_score"], ascending=[True, False]).groupby("date").head(top_k)
-        daily_hits = selected.groupby("date")[TARGET].sum().rename("hits")
-        daily_selected = selected.groupby("date")[TARGET].size().rename("selected")
-        daily = pd.concat([daily_total, daily_hits, daily_selected], axis=1).fillna(0)
-        total_positives = daily["daily_positives"].sum()
-        total_selected = daily["selected"].sum()
-        rows.append(
-            {
-                "top_k_per_day": top_k,
-                "selected_total": int(total_selected),
-                "captured_incidents": int(daily["hits"].sum()),
-                "total_incidents": int(total_positives),
-                "capture_rate": float(daily["hits"].sum() / total_positives) if total_positives else 0.0,
-                "precision_at_k": float(daily["hits"].sum() / total_selected) if total_selected else 0.0,
-            }
-        )
-    return pd.DataFrame(rows)
+def search_spaces() -> dict[str, dict[str, list[object]]]:
+    return {
+        "RandomForestClassifier": {
+            "model__n_estimators": [100, 300, 500],
+            "model__max_depth": [3, 5, 10, None],
+            "model__min_samples_leaf": [1, 3, 5],
+            "model__max_features": ["sqrt", "log2"],
+        },
+        "GradientBoostingClassifier": {
+            "model__n_estimators": [100, 200, 700],
+            "model__learning_rate": [0.01, 0.1, 0.2],
+            "model__max_depth": [3, 5, 7],
+            "model__min_samples_split": [2, 5, 10],
+            "model__min_samples_leaf": [1, 2, 4],
+            "model__subsample": [0.8, 0.9, 1.0],
+        },
+    }
 
 
-def save_confusion_matrix(y_true: pd.Series, y_pred: np.ndarray, output_dir: Path) -> None:
+def save_confusion_matrix(y_true: pd.Series, y_pred: pd.Series, output_dir: Path) -> None:
     matrix = confusion_matrix(y_true, y_pred)
     fig, ax = plt.subplots(figsize=(6, 5))
     ConfusionMatrixDisplay(matrix).plot(ax=ax, colorbar=False)
-    ax.set_title("Final raw ExtraTrees confusion matrix")
+    ax.set_title("Incident classification confusion matrix")
     fig.tight_layout()
     fig.savefig(output_dir / "confusion_matrix.png", dpi=160)
     plt.close(fig)
@@ -166,77 +157,98 @@ def main() -> None:
     args = parse_args()
     output_dir = OUTPUT_ROOT / datetime.now().strftime("%Y%m%d_%H%M%S")
     logger = setup_logger(output_dir)
-    logger.info("Training final raw ExtraTrees incident model")
 
-    X, y, traceability = load_data(args.data_path, args.include_ids, logger)
-    X_train, X_test, y_train, y_test, traceability_train, traceability_test = train_test_split(
+    X, y, preprocessing = load_data(args.data_path, logger)
+    X_train, X_test, y_train, y_test = train_test_split(
         X,
         y,
-        traceability,
         test_size=args.test_size,
         random_state=RANDOM_STATE,
-        stratify=y,
     )
-    logger.info("Train: %s | positives: %.4f", X_train.shape, y_train.mean())
-    logger.info("Test: %s | positives: %.4f", X_test.shape, y_test.mean())
+    logger.info("Train shape: %s", X_train.shape)
+    logger.info("Test shape: %s", X_test.shape)
 
-    model = build_pipeline(X_train)
-    model.fit(X_train, y_train)
+    models = model_definitions()
+    param_spaces = search_spaces()
+    results: dict[str, dict[str, object]] = {}
+    trained_models: dict[str, object] = {}
 
-    y_score = model.predict_proba(X_test)[:, 1]
-    threshold, threshold_scores = best_threshold(y_test, y_score)
-    y_pred = (y_score >= threshold).astype(int)
-    topk = topk_metrics(traceability_test, y_score, args.top_k)
+    for model_name, model in models.items():
+        logger.info("Training %s", model_name)
+        pipeline = build_pipeline(model, X.columns.tolist())
+        if model_name in param_spaces:
+            search = RandomizedSearchCV(
+                pipeline,
+                param_distributions=param_spaces[model_name],
+                n_iter=args.n_iter,
+                cv=args.cv,
+                scoring="accuracy",
+                random_state=RANDOM_STATE,
+                n_jobs=-1,
+                verbose=2,
+            )
+            search.fit(X_train, y_train)
+            best_model = search.best_estimator_
+            best_params: object = search.best_params_
+            cv_best_accuracy = float(search.best_score_)
+        else:
+            best_model = pipeline
+            best_model.fit(X_train, y_train)
+            best_params = "Default parameters used"
+            cv_best_accuracy = None
 
-    metrics = {
-        "average_precision": float(average_precision_score(y_test, y_score)),
-        "roc_auc": float(roc_auc_score(y_test, y_score)),
-        "best_threshold": threshold,
-        "precision": threshold_scores["precision"],
-        "recall": threshold_scores["recall"],
-        "f1": threshold_scores["f1"],
-    }
+        trained_models[model_name] = best_model
+        y_pred = best_model.predict(X_test)
+        result = {
+            "accuracy": float(accuracy_score(y_test, y_pred)),
+            "precision": float(precision_score(y_test, y_pred, zero_division=0)),
+            "recall": float(recall_score(y_test, y_pred, zero_division=0)),
+            "f1": float(f1_score(y_test, y_pred, zero_division=0)),
+            "best_params": best_params,
+            "cv_best_accuracy": cv_best_accuracy,
+            "classification_report": classification_report(y_test, y_pred, output_dict=True, zero_division=0),
+        }
+        if hasattr(best_model, "predict_proba"):
+            result["roc_auc"] = float(roc_auc_score(y_test, best_model.predict_proba(X_test)[:, 1]))
+        results[model_name] = result
+        logger.info("%s accuracy: %.4f", model_name, result["accuracy"])
 
-    model_path = output_dir / "final_raw_extra_trees_model.pkl"
-    joblib.dump(model, model_path)
+    best_model_name = max(results, key=lambda name: results[name]["accuracy"])
+    best_model = trained_models[best_model_name]
+    y_pred = best_model.predict(X_test)
+    joblib.dump(best_model, output_dir / f"{best_model_name}.pkl")
     ARTIFACT_PATH.parent.mkdir(parents=True, exist_ok=True)
     METADATA_PATH.parent.mkdir(parents=True, exist_ok=True)
-    joblib.dump(model, ARTIFACT_PATH)
-
-    pd.DataFrame([metrics]).to_csv(output_dir / "final_metrics.csv", index=False)
-    (output_dir / "final_metrics.json").write_text(json.dumps(metrics, indent=2), encoding="utf-8")
-    topk.to_csv(output_dir / "topk_metrics.csv", index=False)
+    joblib.dump(best_model, ARTIFACT_PATH)
     save_confusion_matrix(y_test, y_pred, output_dir)
 
     summary = {
         "name": "incident_random_forest_model",
-        "model": "ExtraTreesClassifier",
         "artifact_path": str(ARTIFACT_PATH.relative_to(ROOT_DIR)),
-        "run_model_path": str(model_path.relative_to(ROOT_DIR)),
+        "run_model_path": str((output_dir / f"{best_model_name}.pkl").relative_to(ROOT_DIR)),
         "saved_with": "joblib",
-        "model_type": "ExtraTreesClassifier",
+        "model": best_model_name,
+        "model_type": best_model.named_steps["model"].__class__.__name__,
+        "problem": "binary classification",
+        "target": TARGET,
+        "threshold": 0.5,
         "data_source": str(args.data_path.relative_to(ROOT_DIR)),
-        "include_ids": args.include_ids,
-        "threshold": threshold,
-        **metrics,
-        "metrics_path": str((output_dir / "final_metrics.json").relative_to(ROOT_DIR)),
-        "topk_path": str((output_dir / "topk_metrics.csv").relative_to(ROOT_DIR)),
+        "test_size": args.test_size,
+        "n_iter": args.n_iter,
+        "cv": args.cv,
         "train_rows": int(len(X_train)),
         "test_rows": int(len(X_test)),
-        "train_positive_rate": float(y_train.mean()),
-        "test_positive_rate": float(y_test.mean()),
-        "best_params": {
-            "model__n_estimators": "400",
-            "model__min_samples_leaf": "3",
-            "model__class_weight": "balanced",
-        },
+        "positive_rate": float(y.mean()),
+        "preprocessing": preprocessing,
+        "best_model": best_model_name,
+        "best_params": results[best_model_name]["best_params"],
+        "metrics": results,
     }
-    (output_dir / "run_summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
-    METADATA_PATH.write_text(json.dumps(summary, indent=2), encoding="utf-8")
 
-    logger.info("Final metrics: %s", metrics)
-    logger.info("Top-K metrics:\n%s", topk.to_string(index=False))
-    logger.info("Saved final model to %s", ARTIFACT_PATH.relative_to(ROOT_DIR))
+    (output_dir / "run_summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    (output_dir / "metrics.json").write_text(json.dumps(results, indent=2), encoding="utf-8")
+    METADATA_PATH.write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    logger.info("Selected best model: %s", best_model_name)
 
 
 if __name__ == "__main__":
