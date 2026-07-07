@@ -21,7 +21,7 @@ DATA_PATH = ROOT_DIR / "data" / "processed" / "support_dataset.csv"
 OUTPUT_ROOT = ROOT_DIR / "train" / "support_forecast" / "runs"
 ARTIFACT_PATH = ROOT_DIR / "models" / "artifacts" / "support_extra_trees_model.pkl"
 METADATA_PATH = ROOT_DIR / "models" / "metadata" / "support_extra_trees_model.json"
-TARGET = "support_tickets"
+TARGET = "support_tickets_next_1d"
 TEST_START_DATE = "2026-03-01"
 RANDOM_STATE = 42
 
@@ -57,7 +57,7 @@ def add_historical_features(df: pd.DataFrame) -> pd.DataFrame:
         lag7 = grouped[column].shift(7)
         df[f"{column}_lag1"] = shifted
         df[f"{column}_lag7"] = lag7
-        df[f"{column}_diff1"] = shifted - lag7 if column == TARGET else df[column] - shifted
+        df[f"{column}_diff1"] = df[column] - shifted
         df[f"{column}_rolling_mean_3"] = shifted.groupby(df["region"]).rolling(3, min_periods=1).mean().reset_index(level=0, drop=True)
         df[f"{column}_rolling_mean_7"] = shifted.groupby(df["region"]).rolling(7, min_periods=1).mean().reset_index(level=0, drop=True)
         df[f"{column}_rolling_std_7"] = shifted.groupby(df["region"]).rolling(7, min_periods=2).std().reset_index(level=0, drop=True)
@@ -107,11 +107,11 @@ def main() -> None:
             (
                 "model",
                 ExtraTreesRegressor(
-                    n_estimators=207,
+                    n_estimators=400,
                     max_depth=5,
                     max_features=0.6,
-                    min_samples_leaf=7,
-                    min_samples_split=12,
+                    min_samples_leaf=10,
+                    min_samples_split=20,
                     random_state=RANDOM_STATE,
                     n_jobs=-1,
                 ),
@@ -137,7 +137,7 @@ def main() -> None:
 
     metadata = {
         "name": "support_extra_trees_model",
-        "problem": "support_tickets count regression",
+        "problem": "next-day support_tickets count regression",
         "artifact_path": str(ARTIFACT_PATH.relative_to(ROOT_DIR)),
         "saved_with": "joblib",
         "model_type": "ExtraTreesRegressor",
@@ -146,9 +146,9 @@ def main() -> None:
         "best_params": {
             "max_depth": 5,
             "max_features": 0.6,
-            "min_samples_leaf": 7,
-            "min_samples_split": 12,
-            "n_estimators": 207,
+            "min_samples_leaf": 10,
+            "min_samples_split": 20,
+            "n_estimators": 400,
         },
         "source_run": str(output_dir.relative_to(ROOT_DIR)),
     }

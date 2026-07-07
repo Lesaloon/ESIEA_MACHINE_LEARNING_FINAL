@@ -1,7 +1,11 @@
 {
   "source_files": {
     "ml_training_dataset": "data/raw/ml_training_dataset.csv",
-    "technical_region_metrics": "data/raw/technical_region_metrics.csv"
+    "technical_region_metrics": "data/raw/technical_region_metrics.csv",
+    "daily_server_usage": "data/raw/daily_server_usage.csv",
+    "servers": "data/raw/servers.csv",
+    "customers": "data/raw/customers.csv",
+    "incidents": "data/raw/incidents.csv"
   },
   "raw_ml_dataset": {
     "rows": 74250,
@@ -25,14 +29,14 @@
     },
     "support_dataset": {
       "path": "data/processed/support_dataset.csv",
-      "rows": 525,
-      "columns": 11,
-      "target": "support_tickets"
+      "rows": 518,
+      "columns": 12,
+      "target": "support_tickets_next_1d"
     },
     "unsupervised_dataset": {
       "path": "data/processed/unsupervised_dataset.csv",
       "rows": 74250,
-      "columns": 32,
+      "columns": 33,
       "target": null
     }
   },
@@ -42,6 +46,9 @@
       "day_of_month",
       "days_since_start"
     ],
+    "incident_target": "Rebuilt from incidents.csv as server incident in days +1 through +7.",
+    "incident_region_metrics": "Region metrics are shifted by one day and suffixed with _prev_day to avoid same-day leakage.",
+    "support_target": "support_tickets_next_1d predicts next-day region tickets.",
     "removed_identifier_columns": [
       "customer_id"
     ],

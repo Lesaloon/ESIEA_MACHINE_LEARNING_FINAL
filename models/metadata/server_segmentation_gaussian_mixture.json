@@ -5,11 +5,19 @@
   "saved_with": "joblib",
   "model_type": "GaussianMixture",
   "covariance_type": "diag",
-  "n_clusters": 2,
+  "n_clusters": 2.0,
+  "cluster_candidates": [
+    2,
+    3,
+    4,
+    5,
+    6
+  ],
   "selection_metric": "silhouette",
   "silhouette": 0.12248805828311256,
   "davies_bouldin": 2.5606206840195473,
   "calinski_harabasz": 179.40238438721698,
+  "bic": 237150.53275687713,
   "profiles": [
     {
       "cluster": 0,
@@ -44,5 +52,5 @@
       "profile_driver": "temperature_c_mean (+2.36 vs moyenne clusters)"
     }
   ],
-  "source_run": "train/server_segmentation/runs/20260703_142032"
+  "source_run": "train/server_segmentation/runs/20260707_192441"
 }

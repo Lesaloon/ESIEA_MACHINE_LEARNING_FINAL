@@ -9,6 +9,7 @@ import joblib
 import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer
+from sklearn.impute import SimpleImputer
 from sklearn.metrics import average_precision_score, f1_score, precision_score, recall_score, roc_auc_score
 from sklearn.neighbors import LocalOutlierFactor
 from sklearn.pipeline import Pipeline
@@ -64,8 +65,12 @@ def build_preprocessor(X_train: pd.DataFrame) -> ColumnTransformer:
     categorical_features = X_train.select_dtypes(include=["object", "string"]).columns.tolist()
     return ColumnTransformer(
         transformers=[
-            ("num", StandardScaler(), numeric_features),
-            ("cat", OneHotEncoder(handle_unknown="ignore", sparse_output=False), categorical_features),
+            ("num", Pipeline([("imputer", SimpleImputer(strategy="median")), ("scaler", StandardScaler())]), numeric_features),
+            (
+                "cat",
+                Pipeline([("imputer", SimpleImputer(strategy="most_frequent")), ("onehot", OneHotEncoder(handle_unknown="ignore", sparse_output=False))]),
+                categorical_features,
+            ),
         ]
     )
 
@@ -105,7 +110,9 @@ def main() -> None:
     X_test = test_df.drop(columns=drop_columns)
     y_test = test_df[TARGET]
 
-    sampled_index = X_train.sample(n=min(MAX_FIT_ROWS, len(X_train)), random_state=RANDOM_STATE).index
+    normal_index = y_train[y_train == 0].index
+    X_train_normal = X_train.loc[normal_index]
+    sampled_index = X_train_normal.sample(n=min(MAX_FIT_ROWS, len(X_train_normal)), random_state=RANDOM_STATE).index
     X_train_fit = X_train.loc[sampled_index]
     y_train_fit = y_train.loc[sampled_index]
     contamination = float(max(y_train.mean(), 0.001))

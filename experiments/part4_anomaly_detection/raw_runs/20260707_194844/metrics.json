@@ -1,0 +1,16 @@
+{
+  "model": "gradient_boosting",
+  "rows": 74250,
+  "positive_rate": 0.0028282828282828283,
+  "average_precision": 1.0,
+  "roc_auc": 1.0,
+  "best_threshold": 0.9999995982907249,
+  "precision": 1.0,
+  "recall": 1.0,
+  "f1": 1.0,
+  "threshold_metrics": {
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0
+  }
+}

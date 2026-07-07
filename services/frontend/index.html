@@ -19,6 +19,8 @@
       textarea { grid-column: 1 / -1; min-height: 260px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
       button[type="submit"], .example-button { grid-column: 1 / -1; padding: 12px; border: 0; border-radius: 8px; background: #2563eb; color: white; font-weight: 700; cursor: pointer; }
       button[type="submit"]:hover, .example-button:hover { background: #1d4ed8; }
+      .example-actions { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+      .example-actions .example-button { grid-column: auto; margin: 0; flex: 1 1 240px; }
       pre { white-space: pre-wrap; background: #0f172a; color: #d1fae5; padding: 16px; border-radius: 10px; overflow-x: auto; }
       .result { font-size: 20px; font-weight: 700; }
       .human-explanation { margin: 12px 0; color: #334155; line-height: 1.45; }
@@ -220,7 +222,10 @@
 
     <section id="prioritization-panel" class="tab-panel">
       <div class="card">
-        <button id="priority-example" class="example-button" type="button">Fill priority batch example</button>
+        <div class="example-actions">
+          <button id="priority-example" class="example-button" type="button">Fill priority batch example</button>
+          <button id="priority-random-batch" class="example-button" type="button">Fill 100 random servers</button>
+        </div>
         <form id="priority-form">
           <label>Top N <input name="top_n" type="number" value="3" /></label>
           <textarea id="priority-inputs" name="inputs_json"></textarea>
@@ -377,6 +382,228 @@
         }
       }
 
+      function randomBetween(min, max) {
+        return min + Math.random() * (max - min);
+      }
+
+      function clamp(value, min, max) {
+        return Math.min(max, Math.max(min, value));
+      }
+
+      function round(value, decimals = 2) {
+        return Number(value.toFixed(decimals));
+      }
+
+      function pick(list) {
+        return list[Math.floor(Math.random() * list.length)];
+      }
+
+      function pickWeighted(list) {
+        const total = list.reduce((sum, item) => sum + item.weight, 0);
+        let cursor = Math.random() * total;
+        for (const item of list) {
+          cursor -= item.weight;
+          if (cursor <= 0) return item.value;
+        }
+        return list[list.length - 1].value;
+      }
+
+      function randomDate2026() {
+        const start = new Date("2026-01-01T00:00:00Z");
+        const end = new Date("2026-03-31T00:00:00Z");
+        const date = new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
+        return date.toISOString().slice(0, 10);
+      }
+
+      const serverProfiles = {
+        vps: [
+          { cpu_cores: 2, ram_gb: 4, disk_tb: 0.25, has_gpu: 0, is_managed: 0 },
+          { cpu_cores: 4, ram_gb: 8, disk_tb: 0.5, has_gpu: 0, is_managed: 0 },
+          { cpu_cores: 8, ram_gb: 16, disk_tb: 1.0, has_gpu: 0, is_managed: 0 },
+          { cpu_cores: 16, ram_gb: 32, disk_tb: 2.0, has_gpu: 0, is_managed: 1 }
+        ],
+        dedicated: [
+          { cpu_cores: 4, ram_gb: 16, disk_tb: 0.5, has_gpu: 0, is_managed: 0 },
+          { cpu_cores: 8, ram_gb: 32, disk_tb: 1.0, has_gpu: 0, is_managed: 0 },
+          { cpu_cores: 16, ram_gb: 64, disk_tb: 2.0, has_gpu: 0, is_managed: 0 },
+          { cpu_cores: 32, ram_gb: 64, disk_tb: 4.0, has_gpu: 0, is_managed: 1 }
+        ],
+        storage: [
+          { cpu_cores: 8, ram_gb: 16, disk_tb: 2.0, has_gpu: 0, is_managed: 0 },
+          { cpu_cores: 8, ram_gb: 32, disk_tb: 4.0, has_gpu: 0, is_managed: 0 },
+          { cpu_cores: 16, ram_gb: 32, disk_tb: 8.0, has_gpu: 0, is_managed: 1 }
+        ],
+        database: [
+          { cpu_cores: 8, ram_gb: 32, disk_tb: 0.5, has_gpu: 0, is_managed: 1 },
+          { cpu_cores: 16, ram_gb: 64, disk_tb: 1.0, has_gpu: 0, is_managed: 1 },
+          { cpu_cores: 32, ram_gb: 128, disk_tb: 2.0, has_gpu: 0, is_managed: 1 }
+        ],
+        gpu: [
+          { cpu_cores: 8, ram_gb: 32, disk_tb: 0.25, has_gpu: 1, is_managed: 0 },
+          { cpu_cores: 16, ram_gb: 64, disk_tb: 0.5, has_gpu: 1, is_managed: 0 },
+          { cpu_cores: 32, ram_gb: 128, disk_tb: 1.0, has_gpu: 1, is_managed: 1 }
+        ]
+      };
+
+      function generatePriorityServer(index) {
+        const serverType = pickWeighted([
+          { value: "vps", weight: 40 },
+          { value: "dedicated", weight: 33 },
+          { value: "storage", weight: 11 },
+          { value: "database", weight: 11 },
+          { value: "gpu", weight: 5 }
+        ]);
+        const profile = pick(serverProfiles[serverType]);
+        const segment = pickWeighted([
+          { value: "sme", weight: 35 },
+          { value: "startup", weight: 28 },
+          { value: "enterprise", weight: 18 },
+          { value: "reseller", weight: 11 },
+          { value: "public_sector", weight: 8 }
+        ]);
+        const supportPlan = segment === "enterprise" || segment === "public_sector"
+          ? pickWeighted([
+              { value: "standard", weight: 30 },
+              { value: "premium", weight: 30 },
+              { value: "basic", weight: 20 },
+              { value: "critical", weight: 20 }
+            ])
+          : pickWeighted([
+              { value: "basic", weight: 45 },
+              { value: "standard", weight: 38 },
+              { value: "premium", weight: 12 },
+              { value: "critical", weight: 5 }
+            ]);
+        const osFamily = profile.is_managed === 1
+          ? pickWeighted([
+              { value: "managed", weight: 55 },
+              { value: "linux", weight: 35 },
+              { value: "windows", weight: 10 }
+            ])
+          : serverType === "gpu"
+            ? pickWeighted([
+                { value: "linux", weight: 55 },
+                { value: "windows", weight: 45 }
+              ])
+            : pickWeighted([
+                { value: "linux", weight: 78 },
+                { value: "windows", weight: 18 },
+                { value: "managed", weight: 4 }
+              ]);
+
+        const cpuBaseByType = { vps: 40, dedicated: 46, storage: 34, database: 52, gpu: 58 };
+        const ramBaseByType = { vps: 41, dedicated: 44, storage: 38, database: 57, gpu: 50 };
+        const diskBaseByType = { vps: 34, dedicated: 36, storage: 59, database: 48, gpu: 30 };
+        const netBaseByType = { vps: 155, dedicated: 140, storage: 185, database: 110, gpu: 170 };
+
+        const cpuUtil = clamp(randomBetween(cpuBaseByType[serverType] - 22, cpuBaseByType[serverType] + 24), 3, 99);
+        const ramUtil = clamp(randomBetween(ramBaseByType[serverType] - 20, ramBaseByType[serverType] + 22), 4, 98);
+        const diskUtil = clamp(randomBetween(diskBaseByType[serverType] - 16, diskBaseByType[serverType] + 18), 6, 89.5);
+        const capacityUsed = clamp(diskUtil + randomBetween(14, 36), 38, 98);
+        const netIn = clamp(randomBetween(netBaseByType[serverType] * 0.25, netBaseByType[serverType] * 2.1), 0.33, 1049.16);
+        const netOut = clamp(netIn * randomBetween(0.6, 1.6), 0.64, 973.22);
+        const powerUsage = clamp(
+          0.28 + profile.cpu_cores * 0.006 + profile.ram_gb * 0.0013 + profile.has_gpu * 0.11 + cpuUtil * 0.0015 + randomBetween(-0.03, 0.03),
+          0.281,
+          0.834
+        );
+        const rackTemp = clamp(48 + powerUsage * 6 + randomBetween(-2.4, 2.2), 45.26, 59.05);
+        const temperature = clamp(rackTemp + cpuUtil * 0.17 + profile.has_gpu * 4 + randomBetween(-4.5, 4.5), 20.78, 85.03);
+        const latency = clamp(
+          randomBetween(4, 17)
+            + (profile.is_managed ? 2.5 : 0)
+            + (serverType === "storage" ? 3 : 0)
+            + (serverType === "gpu" ? 2 : 0)
+            + (segment === "public_sector" ? 2 : 0)
+            + randomBetween(-2.5, 9),
+          2,
+          42
+        );
+        const ageDays = Math.round(randomBetween(30, 2490));
+        const tenureDays = Math.round(randomBetween(18, 2490));
+        const contractMonths = pickWeighted([
+          { value: 1, weight: 15 },
+          { value: 12, weight: 36 },
+          { value: 24, weight: 27 },
+          { value: 36, weight: 22 }
+        ]);
+        const backupSuccess = Math.random() < 0.92 ? 1 : 0;
+        const scheduledMaintenance = Math.random() < 0.14 ? 1 : 0;
+        const supportTickets = Math.round(clamp(
+          0.8
+            + cpuUtil / 24
+            + latency / 15
+            + (temperature > 67 ? 1.5 : 0)
+            + (backupSuccess ? 0 : 1.3)
+            + (scheduledMaintenance ? 1.7 : 0)
+            + (supportPlan === "critical" ? 0.7 : 0)
+            + randomBetween(-2.2, 2.3),
+          0,
+          13
+        ));
+        const monthlySpend = clamp(
+          6
+            + profile.cpu_cores * 4.4
+            + profile.ram_gb * 0.85
+            + profile.disk_tb * 26
+            + profile.has_gpu * 320
+            + profile.is_managed * 45
+            + ({ basic: 0, standard: 14, premium: 48, critical: 86 }[supportPlan])
+            + ({ startup: -8, sme: 0, enterprise: 30, reseller: 8, public_sector: 24 }[segment])
+            + randomBetween(-18, 24),
+          5.53,
+          1290.38
+        );
+
+        return {
+          date: randomDate2026(),
+          server_id: `S${String(900000 + index).padStart(6, "0")}`,
+          server_type: serverType,
+          region: pickWeighted([
+            { value: "rbx", weight: 22 },
+            { value: "gra", weight: 21 },
+            { value: "sbg", weight: 16 },
+            { value: "bhs", weight: 14 },
+            { value: "waw", weight: 10 },
+            { value: "lim", weight: 9 },
+            { value: "eri", weight: 8 }
+          ]),
+          os_family: osFamily,
+          segment: segment,
+          country: pickWeighted([
+            { value: "FR", weight: 33 },
+            { value: "DE", weight: 22 },
+            { value: "UK", weight: 16 },
+            { value: "PL", weight: 10 },
+            { value: "ES", weight: 8 },
+            { value: "BE", weight: 11 }
+          ]),
+          support_plan: supportPlan,
+          cpu_cores: profile.cpu_cores,
+          ram_gb: profile.ram_gb,
+          disk_tb: profile.disk_tb,
+          age_days: ageDays,
+          has_gpu: profile.has_gpu,
+          is_managed: profile.is_managed,
+          cpu_util_pct: round(cpuUtil),
+          ram_util_pct: round(ramUtil),
+          disk_util_pct: round(diskUtil),
+          net_in_gb: round(netIn),
+          net_out_gb: round(netOut),
+          temperature_c: round(temperature),
+          backup_success: backupSuccess,
+          scheduled_maintenance: scheduledMaintenance,
+          avg_rack_temperature_c: round(rackTemp),
+          power_usage_mw: round(powerUsage, 3),
+          network_latency_ms: round(latency),
+          support_tickets: supportTickets,
+          capacity_used_pct: round(capacityUsed),
+          contract_months: contractMonths,
+          tenure_days: tenureDays,
+          monthly_spend_eur: round(monthlySpend)
+        };
+      }
+
       document.getElementById("segmentation-hot-example").addEventListener("click", () => {
         fillSegmentationExample({
           server_id: "S000002", server_type: "gpu", region: "rbx", os_family: "windows", segment: "reseller",
@@ -451,6 +678,14 @@
             monthly_spend_eur: 130.34
           }
         ], null, 2);
+      });
+
+      document.getElementById("priority-random-batch").addEventListener("click", () => {
+        document.getElementById("priority-inputs").value = JSON.stringify(
+          Array.from({ length: 100 }, (_, index) => generatePriorityServer(index + 1)),
+          null,
+          2
+        );
       });
 
       document.getElementById("risky-example").addEventListener("click", () => {

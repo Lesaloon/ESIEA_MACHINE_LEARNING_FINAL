@@ -7,6 +7,7 @@ import joblib
 
 
 CONTAINER_INCIDENT_MODEL_PATH = Path("/models/artifacts/incident_random_forest_model.pkl")
+CONTAINER_INCIDENT_METADATA_PATH = Path("/models/metadata/incident_random_forest_model.json")
 CONTAINER_SUPPORT_MODEL_PATH = Path("/models/artifacts/support_extra_trees_model.pkl")
 CONTAINER_SUPPORT_METADATA_PATH = Path("/models/metadata/support_extra_trees_model.json")
 CONTAINER_SEGMENTATION_MODEL_PATH = Path("/models/artifacts/server_segmentation_gaussian_mixture.pkl")
@@ -24,6 +25,17 @@ def resolve_incident_model_path() -> Path:
     if len(current_path.parents) > 3:
         return current_path.parents[3] / "models" / "artifacts" / "incident_random_forest_model.pkl"
     return CONTAINER_INCIDENT_MODEL_PATH
+
+
+def resolve_incident_metadata_path() -> Path:
+    if configured_path := os.getenv("INCIDENT_MODEL_METADATA_PATH"):
+        return Path(configured_path)
+    if CONTAINER_INCIDENT_METADATA_PATH.exists():
+        return CONTAINER_INCIDENT_METADATA_PATH
+    current_path = Path(__file__).resolve()
+    if len(current_path.parents) > 3:
+        return current_path.parents[3] / "models" / "metadata" / "incident_random_forest_model.json"
+    return CONTAINER_INCIDENT_METADATA_PATH
 
 
 def resolve_support_model_path() -> Path:
@@ -103,6 +115,14 @@ def load_model() -> object:
 
 
 @lru_cache
+def load_incident_metadata() -> dict[str, object]:
+    metadata_path = resolve_incident_metadata_path()
+    if not metadata_path.exists():
+        return {}
+    return json.loads(metadata_path.read_text(encoding="utf-8"))
+
+
+@lru_cache
 def load_support_model() -> object:
     model_path = resolve_support_model_path()
     if not model_path.exists():
@@ -148,4 +168,3 @@ def load_anomaly_metadata() -> dict[str, object]:
     if not metadata_path.exists():
         return {}
     return json.loads(metadata_path.read_text(encoding="utf-8"))
-

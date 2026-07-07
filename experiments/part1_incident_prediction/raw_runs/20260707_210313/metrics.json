@@ -1,0 +1,164 @@
+{
+  "data_source": "data/raw/ml_training_dataset.csv",
+  "target": "incident_next_7d",
+  "test_size": 0.2,
+  "n_iter": 3,
+  "cv": 4,
+  "preprocessing": {
+    "encoded_categorical_features": [
+      "server_type",
+      "region",
+      "os_family",
+      "segment",
+      "country",
+      "support_plan"
+    ],
+    "scaled_numeric_features": [
+      "cpu_cores",
+      "ram_gb",
+      "disk_tb",
+      "age_days",
+      "cpu_util_pct",
+      "ram_util_pct",
+      "disk_util_pct",
+      "net_in_gb",
+      "net_out_gb",
+      "temperature_c",
+      "avg_rack_temperature_c",
+      "power_usage_mw",
+      "network_latency_ms",
+      "capacity_used_pct",
+      "contract_months",
+      "tenure_days",
+      "monthly_spend_eur"
+    ],
+    "rows_after_cleaning": 74250,
+    "feature_count": 49
+  },
+  "train_rows": 59400,
+  "test_rows": 14850,
+  "positive_rate": 0.021966329966329967,
+  "best_model": "GradientBoostingClassifier",
+  "results": {
+    "DummyClassifier": {
+      "accuracy": 0.5003367003367003,
+      "precision": 0.02237498315136811,
+      "recall": 0.4984984984984985,
+      "f1": 0.04282765737874097,
+      "classification_report": {
+        "0": {
+          "precision": 0.9775265778495492,
+          "recall": 0.5003788661569195,
+          "f1-score": 0.661928193912885,
+          "support": 14517.0
+        },
+        "1": {
+          "precision": 0.02237498315136811,
+          "recall": 0.4984984984984985,
+          "f1-score": 0.04282765737874097,
+          "support": 333.0
+        },
+        "accuracy": 0.5003367003367003,
+        "macro avg": {
+          "precision": 0.49995078050045866,
+          "recall": 0.499438682327709,
+          "f1-score": 0.352377925645813,
+          "support": 14850.0
+        },
+        "weighted avg": {
+          "precision": 0.9561080269381355,
+          "recall": 0.5003367003367004,
+          "f1-score": 0.6480453333966648,
+          "support": 14850.0
+        }
+      },
+      "roc_auc": 0.5,
+      "best_params": "Default parameters used",
+      "cv_best_accuracy": null
+    },
+    "RandomForestClassifier": {
+      "accuracy": 0.9775757575757575,
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "classification_report": {
+        "0": {
+          "precision": 0.9775757575757575,
+          "recall": 1.0,
+          "f1-score": 0.9886607416487895,
+          "support": 14517.0
+        },
+        "1": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1-score": 0.0,
+          "support": 333.0
+        },
+        "accuracy": 0.9775757575757575,
+        "macro avg": {
+          "precision": 0.48878787878787877,
+          "recall": 0.5,
+          "f1-score": 0.49433037082439474,
+          "support": 14850.0
+        },
+        "weighted avg": {
+          "precision": 0.9556543617998163,
+          "recall": 0.9775757575757575,
+          "f1-score": 0.9664907735027257,
+          "support": 14850.0
+        }
+      },
+      "roc_auc": 0.6833421559604655,
+      "best_params": {
+        "n_estimators": 300,
+        "min_samples_leaf": 3,
+        "max_features": "sqrt",
+        "max_depth": 3
+      },
+      "cv_best_accuracy": 0.9781481481481482
+    },
+    "GradientBoostingClassifier": {
+      "accuracy": 0.9776430976430976,
+      "precision": 1.0,
+      "recall": 0.003003003003003003,
+      "f1": 0.005988023952095809,
+      "classification_report": {
+        "0": {
+          "precision": 0.9776415920263991,
+          "recall": 1.0,
+          "f1-score": 0.9886944084996254,
+          "support": 14517.0
+        },
+        "1": {
+          "precision": 1.0,
+          "recall": 0.003003003003003003,
+          "f1-score": 0.005988023952095809,
+          "support": 333.0
+        },
+        "accuracy": 0.9776430976430976,
+        "macro avg": {
+          "precision": 0.9888207960131996,
+          "recall": 0.5015015015015015,
+          "f1-score": 0.49734121622586064,
+          "support": 14850.0
+        },
+        "weighted avg": {
+          "precision": 0.9781429623870193,
+          "recall": 0.9776430976430976,
+          "f1-score": 0.9666579623006808,
+          "support": 14850.0
+        }
+      },
+      "roc_auc": 0.8249857627828283,
+      "best_params": {
+        "subsample": 0.8,
+        "n_estimators": 200,
+        "min_samples_split": 10,
+        "min_samples_leaf": 1,
+        "max_depth": 5,
+        "learning_rate": 0.01
+      },
+      "cv_best_accuracy": 0.9781481481481482
+    }
+  }
+}

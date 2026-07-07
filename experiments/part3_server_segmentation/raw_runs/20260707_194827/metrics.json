@@ -1,0 +1,8 @@
+{
+  "model": "gaussian_mixture",
+  "clusters": 3,
+  "rows": 2200,
+  "silhouette": 0.11885142607586287,
+  "davies_bouldin": 2.363362602563143,
+  "calinski_harabasz": 210.76967039093333
+}

@@ -1,20 +1,20 @@
 {
   "name": "support_extra_trees_model",
-  "problem": "support_tickets count regression",
+  "problem": "next-day support_tickets count regression",
   "artifact_path": "models/artifacts/support_extra_trees_model.pkl",
   "saved_with": "joblib",
   "model_type": "ExtraTreesRegressor",
   "selection_metric": "MAE on temporal test set",
-  "mae": 1.6635717523269598,
-  "rmse": 2.0496149940302324,
-  "r2": 0.02327326422811904,
-  "safe_mape": 0.620611738313686,
+  "mae": 1.6641409314767126,
+  "rmse": 2.0606145951882753,
+  "r2": -0.026704336382136873,
+  "safe_mape": 0.6486558522569917,
   "best_params": {
     "max_depth": 5,
     "max_features": 0.6,
-    "min_samples_leaf": 7,
-    "min_samples_split": 12,
-    "n_estimators": 207
+    "min_samples_leaf": 10,
+    "min_samples_split": 20,
+    "n_estimators": 400
   },
-  "source_run": "train/support_forecast/runs/20260703_140124"
+  "source_run": "train/support_forecast/runs/20260707_192347"
 }

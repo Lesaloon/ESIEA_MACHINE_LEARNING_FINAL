@@ -8,9 +8,11 @@ from pathlib import Path
 import joblib
 import matplotlib
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.decomposition import PCA
+from sklearn.impute import SimpleImputer
 from sklearn.metrics import calinski_harabasz_score, davies_bouldin_score, silhouette_score
 from sklearn.mixture import GaussianMixture
 from sklearn.pipeline import Pipeline
@@ -25,7 +27,7 @@ OUTPUT_ROOT = ROOT_DIR / "train" / "server_segmentation" / "runs"
 ARTIFACT_PATH = ROOT_DIR / "models" / "artifacts" / "server_segmentation_gaussian_mixture.pkl"
 METADATA_PATH = ROOT_DIR / "models" / "metadata" / "server_segmentation_gaussian_mixture.json"
 RANDOM_STATE = 42
-N_CLUSTERS = 2
+CLUSTER_CANDIDATES = range(2, 7)
 
 CATEGORICAL_COLUMNS = ["server_type", "region", "os_family", "segment", "country", "support_plan"]
 
@@ -88,10 +90,53 @@ def build_preprocessor(feature_df: pd.DataFrame) -> ColumnTransformer:
     numeric_features = feature_df.drop(columns=["server_id"]).select_dtypes(include="number").columns.tolist()
     return ColumnTransformer(
         transformers=[
-            ("num", StandardScaler(), numeric_features),
-            ("cat", OneHotEncoder(handle_unknown="ignore", sparse_output=False), CATEGORICAL_COLUMNS),
+            ("num", Pipeline([("imputer", SimpleImputer(strategy="median")), ("scaler", StandardScaler())]), numeric_features),
+            (
+                "cat",
+                Pipeline([("imputer", SimpleImputer(strategy="most_frequent")), ("onehot", OneHotEncoder(handle_unknown="ignore", sparse_output=False))]),
+                CATEGORICAL_COLUMNS,
+            ),
         ]
     )
+
+
+def fit_best_gmm(preprocessor: ColumnTransformer, X: pd.DataFrame, logger: logging.Logger) -> tuple[Pipeline, np.ndarray, dict[str, float]]:
+    X_processed = preprocessor.fit_transform(X)
+    best_score = -np.inf
+    best_pipeline: Pipeline | None = None
+    best_labels: np.ndarray | None = None
+    best_metrics: dict[str, float] = {}
+
+    for n_clusters in CLUSTER_CANDIDATES:
+        model = GaussianMixture(
+            n_components=n_clusters,
+            covariance_type="diag",
+            reg_covar=1e-6,
+            random_state=RANDOM_STATE,
+            n_init=10,
+            max_iter=300,
+        )
+        labels = model.fit_predict(X_processed)
+        if len(np.unique(labels)) < 2:
+            continue
+        metrics = {
+            "n_clusters": float(n_clusters),
+            "silhouette": float(silhouette_score(X_processed, labels)),
+            "davies_bouldin": float(davies_bouldin_score(X_processed, labels)),
+            "calinski_harabasz": float(calinski_harabasz_score(X_processed, labels)),
+            "bic": float(model.bic(X_processed)),
+        }
+        logger.info("GMM candidate metrics: %s", metrics)
+        score = metrics["silhouette"] - 0.01 * n_clusters
+        if score > best_score:
+            best_score = score
+            best_pipeline = Pipeline(steps=[("preprocessor", preprocessor), ("model", model)])
+            best_labels = labels
+            best_metrics = metrics
+
+    if best_pipeline is None or best_labels is None:
+        raise RuntimeError("No valid GaussianMixture candidate produced at least two clusters")
+    return best_pipeline, best_labels, best_metrics
 
 
 def assign_profile_names(profile_df: pd.DataFrame) -> tuple[dict[int, str], dict[int, str]]:
@@ -151,13 +196,7 @@ def main() -> None:
     feature_df = build_server_features(df)
     X = feature_df.drop(columns=["server_id"])
 
-    pipeline = Pipeline(
-        steps=[
-            ("preprocessor", build_preprocessor(feature_df)),
-            ("model", GaussianMixture(n_components=N_CLUSTERS, covariance_type="diag", random_state=RANDOM_STATE, n_init=2, max_iter=150)),
-        ]
-    )
-    labels = pipeline.fit_predict(X)
+    pipeline, labels, metrics = fit_best_gmm(build_preprocessor(feature_df), X, logger)
     X_processed = pipeline.named_steps["preprocessor"].transform(X)
 
     assignments = feature_df[["server_id"]].copy()
@@ -182,11 +221,6 @@ def main() -> None:
     profiles["profile_driver"] = profiles["cluster"].map(profile_drivers)
     assignments["profile_name"] = assignments["cluster"].map(profile_names)
 
-    metrics = {
-        "silhouette": float(silhouette_score(X_processed, labels)),
-        "davies_bouldin": float(davies_bouldin_score(X_processed, labels)),
-        "calinski_harabasz": float(calinski_harabasz_score(X_processed, labels)),
-    }
     logger.info("Metrics: %s", metrics)
     logger.info("Profiles:\n%s", profiles.to_string(index=False))
 
@@ -207,7 +241,8 @@ def main() -> None:
         "saved_with": "joblib",
         "model_type": "GaussianMixture",
         "covariance_type": "diag",
-        "n_clusters": N_CLUSTERS,
+        "n_clusters": int(metrics["n_clusters"]),
+        "cluster_candidates": list(CLUSTER_CANDIDATES),
         "selection_metric": "silhouette",
         **metrics,
         "profiles": profiles.to_dict(orient="records"),

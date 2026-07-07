@@ -1,0 +1,21 @@
+{
+  "target": "overload_anomaly",
+  "model": "gradient_boosting",
+  "include_ids": false,
+  "rows": 74250,
+  "features": 29,
+  "positive_rate": 0.0028282828282828283,
+  "train_rows": 59400,
+  "test_rows": 14850,
+  "average_precision": 1.0,
+  "roc_auc": 1.0,
+  "best_threshold": 6.039735348357954e-11,
+  "precision": 0.0028282828282828283,
+  "recall": 1.0,
+  "f1": 0.0056406124093473006,
+  "threshold_metrics": {
+    "precision": 0.0028282828282828283,
+    "recall": 1.0,
+    "f1": 0.0056406124093473006
+  }
+}

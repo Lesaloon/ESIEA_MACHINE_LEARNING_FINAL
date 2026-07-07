@@ -12,3 +12,5 @@ experiments/*/runs/
 experiments/*/runs_v2/
 experiments/*/final_model/
 train/*/runs/
+
+experiments/*/raw_runs/

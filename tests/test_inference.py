@@ -8,6 +8,7 @@ sys.path.insert(0, str(ROOT_DIR / "services" / "shared-inference"))
 
 from app import main as gateway  # noqa: E402
 from inference.predictor import build_anomaly_feature_frame, build_segmentation_feature_frame, build_support_feature_frame, predict, predict_anomaly, predict_prioritization, predict_segmentation, predict_support  # noqa: E402
+from inference.model_loader import load_incident_metadata  # noqa: E402
 from inference.schemas import IncidentFeatures, PredictionRequest, PrioritizationRequest, SegmentationFeatures, SupportForecastFeatures  # noqa: E402
 
 
@@ -25,8 +26,9 @@ def test_support_feature_frame_contains_expected_features() -> None:
 
     frame = build_support_feature_frame(features)
 
-    assert frame.shape == (1, 47)
+    assert frame.shape == (1, 48)
     assert frame.loc[0, "day_of_week"] == 1
+    assert frame.loc[0, "support_tickets"] == 5
     assert frame.loc[0, "support_tickets_lag1"] == 5
     assert frame.loc[0, "support_tickets_rolling_std_7"] == 0
 
@@ -199,6 +201,48 @@ def test_incident_prediction_returns_explanations() -> None:
     assert response.top_explanations
     assert response.human_explanation
     assert {"feature", "impact", "method"}.issubset(response.top_explanations[0])
+
+
+def test_incident_prediction_uses_saved_threshold_metadata() -> None:
+    payload = PredictionRequest(
+        inputs={
+            "date": "2026-03-17",
+            "server_id": "S000000",
+            "server_type": "vps",
+            "region": "waw",
+            "os_family": "linux",
+            "segment": "startup",
+            "country": "DE",
+            "support_plan": "critical",
+            "cpu_cores": 8,
+            "ram_gb": 16,
+            "disk_tb": 2.0,
+            "age_days": 1339,
+            "has_gpu": 0,
+            "is_managed": 0,
+            "cpu_util_pct": 82.84,
+            "ram_util_pct": 46.65,
+            "disk_util_pct": 28.8,
+            "net_in_gb": 249.31,
+            "net_out_gb": 191.95,
+            "temperature_c": 63.74,
+            "backup_success": 1,
+            "scheduled_maintenance": 0,
+            "avg_rack_temperature_c": 53.59,
+            "power_usage_mw": 0.65,
+            "network_latency_ms": 23.24,
+            "support_tickets": 5,
+            "capacity_used_pct": 66.77,
+            "contract_months": 36,
+            "tenure_days": 1197,
+            "monthly_spend_eur": 130.34,
+        }
+    )
+
+    response = predict(payload)
+    metadata = load_incident_metadata()
+
+    assert response.metadata["threshold"] == metadata["threshold"]
 
 
 def test_support_prediction_returns_explanations() -> None:
