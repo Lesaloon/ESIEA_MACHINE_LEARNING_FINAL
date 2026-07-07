@@ -6,10 +6,11 @@ from datetime import datetime
 from pathlib import Path
 
 import joblib
+import numpy as np
 import pandas as pd
 from sklearn.dummy import DummyClassifier
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
-from sklearn.metrics import accuracy_score, classification_report, f1_score, precision_score, recall_score, roc_auc_score
+from sklearn.metrics import accuracy_score, average_precision_score, classification_report, f1_score, precision_recall_curve, precision_score, recall_score, roc_auc_score
 from sklearn.model_selection import RandomizedSearchCV, train_test_split
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
@@ -128,20 +129,50 @@ def search_spaces() -> dict[str, dict[str, list[object]]]:
     }
 
 
+def best_threshold(y_true: pd.Series, y_score: np.ndarray) -> tuple[float, dict[str, float]]:
+    precision, recall, thresholds = precision_recall_curve(y_true, y_score)
+    if len(thresholds) == 0:
+        return 0.5, {"precision": 0.0, "recall": 0.0, "f1": 0.0}
+
+    f1_values = np.divide(
+        2 * precision[:-1] * recall[:-1],
+        precision[:-1] + recall[:-1],
+        out=np.zeros_like(thresholds, dtype=float),
+        where=(precision[:-1] + recall[:-1]) > 0,
+    )
+    best_index = int(np.nanargmax(f1_values))
+    return float(thresholds[best_index]), {
+        "precision": float(precision[best_index]),
+        "recall": float(recall[best_index]),
+        "f1": float(f1_values[best_index]),
+    }
+
+
 def evaluate_model(model_name: str, estimator: object, X_test: pd.DataFrame, y_test: pd.Series) -> dict[str, object]:
     y_pred = estimator.predict(X_test)
     metrics = {
         "accuracy": float(accuracy_score(y_test, y_pred)),
-        "precision": float(precision_score(y_test, y_pred, zero_division=0)),
-        "recall": float(recall_score(y_test, y_pred, zero_division=0)),
-        "f1": float(f1_score(y_test, y_pred, zero_division=0)),
+        "precision_at_default_threshold": float(precision_score(y_test, y_pred, zero_division=0)),
+        "recall_at_default_threshold": float(recall_score(y_test, y_pred, zero_division=0)),
+        "f1_at_default_threshold": float(f1_score(y_test, y_pred, zero_division=0)),
         "classification_report": classification_report(y_test, y_pred, output_dict=True, zero_division=0),
     }
     if hasattr(estimator, "predict_proba"):
         y_score = estimator.predict_proba(X_test)[:, 1]
+        threshold, threshold_metrics = best_threshold(y_test, y_score)
+        y_threshold_pred = (y_score >= threshold).astype(int)
+        metrics["average_precision"] = float(average_precision_score(y_test, y_score))
         metrics["roc_auc"] = float(roc_auc_score(y_test, y_score))
+        metrics["best_threshold"] = threshold
+        metrics["precision"] = float(precision_score(y_test, y_threshold_pred, zero_division=0))
+        metrics["recall"] = float(recall_score(y_test, y_threshold_pred, zero_division=0))
+        metrics["f1"] = float(f1_score(y_test, y_threshold_pred, zero_division=0))
+        metrics["threshold_metrics"] = threshold_metrics
 
-    print(f"{model_name} accuracy: {metrics['accuracy']:.4f}")
+    print(
+        f"{model_name} AP: {metrics.get('average_precision', 0.0):.4f} | "
+        f"ROC-AUC: {metrics.get('roc_auc', 0.0):.4f} | F1: {metrics.get('f1', 0.0):.4f}"
+    )
     return metrics
 
 
@@ -153,6 +184,7 @@ def main() -> None:
         y,
         test_size=args.test_size,
         random_state=RANDOM_STATE,
+        stratify=y,
     )
 
     models = model_definitions()
@@ -169,7 +201,7 @@ def main() -> None:
                 param_distributions=param_spaces[model_name],
                 n_iter=args.n_iter,
                 cv=args.cv,
-                scoring="accuracy",
+                scoring="average_precision",
                 random_state=RANDOM_STATE,
                 n_jobs=-1,
                 verbose=2,
@@ -190,10 +222,10 @@ def main() -> None:
         results[model_name] = {
             **metrics,
             "best_params": best_params,
-            "cv_best_accuracy": cv_score,
+            "cv_best_average_precision": cv_score,
         }
 
-    best_model_name = max(results, key=lambda name: results[name]["accuracy"])
+    best_model_name = max(results, key=lambda name: results[name].get("average_precision", -1.0))
     run_dir = EXPERIMENT_DIR / "raw_runs" / datetime.now().strftime("%Y%m%d_%H%M%S")
     run_dir.mkdir(parents=True, exist_ok=True)
     joblib.dump(trained_models[best_model_name], run_dir / f"incident_classifier_{best_model_name}.pkl")
@@ -209,10 +241,23 @@ def main() -> None:
         "test_rows": int(len(X_test)),
         "positive_rate": float(y.mean()),
         "best_model": best_model_name,
+        "selection_metric": "average_precision",
         "results": results,
     }
     (run_dir / "metrics.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
-    print(json.dumps({name: {"accuracy": values["accuracy"], "best_params": values["best_params"]} for name, values in results.items()}, indent=2))
+    print(
+        json.dumps(
+            {
+                name: {
+                    "average_precision": values.get("average_precision"),
+                    "best_threshold": values.get("best_threshold"),
+                    "best_params": values["best_params"],
+                }
+                for name, values in results.items()
+            },
+            indent=2,
+        )
+    )
 
 
 if __name__ == "__main__":

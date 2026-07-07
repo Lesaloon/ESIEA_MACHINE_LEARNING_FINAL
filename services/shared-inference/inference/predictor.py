@@ -147,6 +147,37 @@ INCIDENT_REGION_INPUT_MAP = {
     "capacity_used_pct_prev_day": "capacity_used_pct",
 }
 
+INCIDENT_DEFAULT_FEATURE_COLUMNS = [
+    "server_type",
+    "region",
+    "os_family",
+    "cpu_cores",
+    "ram_gb",
+    "disk_tb",
+    "age_days",
+    "has_gpu",
+    "is_managed",
+    "cpu_util_pct",
+    "ram_util_pct",
+    "disk_util_pct",
+    "net_in_gb",
+    "net_out_gb",
+    "temperature_c",
+    "backup_success",
+    "scheduled_maintenance",
+    "avg_rack_temperature_c",
+    "power_usage_mw",
+    "network_latency_ms",
+    "support_tickets",
+    "capacity_used_pct",
+    "segment",
+    "country",
+    "contract_months",
+    "support_plan",
+    "tenure_days",
+    "monthly_spend_eur",
+]
+
 
 def _payload_to_features(payload: PredictionRequest) -> IncidentFeatures:
     data: dict[str, Any] = payload.inputs or payload.model_extra or {}
@@ -183,42 +214,21 @@ def _input_hash(inputs: dict[str, Any]) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:12]
 
 
-def build_feature_frame(features: IncidentFeatures) -> pd.DataFrame:
+def _incident_feature_value(data: dict[str, Any], column: str, observed_date: pd.Timestamp) -> Any:
+    if column == "day_of_week":
+        return data.get("day_of_week") if data.get("day_of_week") is not None else int(observed_date.dayofweek)
+    if column == "day_of_month":
+        return data.get("day_of_month") if data.get("day_of_month") is not None else int(observed_date.day)
+    if column == "days_since_start":
+        return data.get("days_since_start") if data.get("days_since_start") is not None else int((observed_date - pd.Timestamp("2026-01-01")).days)
+    return data[column]
+
+
+def build_feature_frame(features: IncidentFeatures, metadata: dict[str, Any] | None = None) -> pd.DataFrame:
     data = features.model_dump()
     observed_date = pd.to_datetime(data["date"])
-
-    if data.get("day_of_week") is None:
-        data["day_of_week"] = int(observed_date.dayofweek)
-    if data.get("day_of_month") is None:
-        data["day_of_month"] = int(observed_date.day)
-    if data.get("days_since_start") is None:
-        data["days_since_start"] = int((observed_date - pd.Timestamp("2026-01-01")).days)
-
-    row = {}
-    for column in INCIDENT_RAW_FEATURE_COLUMNS:
-        row[column] = data[INCIDENT_REGION_INPUT_MAP.get(column, column)]
-
-    for raw_column in INCIDENT_REGION_INPUT_MAP.values():
-        row[raw_column] = data[raw_column]
-
-    for column in HISTORY_COLUMNS:
-        # At online inference time we may only receive the current observation.
-        # Use the current value as a conservative proxy for recent history instead
-        # of sending missing values for the rolling features used by the model.
-        row[f"{column}_lag1"] = row[column]
-        row[f"{column}_diff1"] = 0
-        row[f"{column}_rolling_mean_3"] = row[column]
-        row[f"{column}_rolling_mean_7"] = row[column]
-        row[f"{column}_rolling_max_7"] = row[column]
-
-    row["cpu_ram_pressure"] = row["cpu_util_pct"] * row["ram_util_pct"] / 100
-    row["thermal_pressure"] = row["temperature_c"] * row["cpu_util_pct"] / 100
-    row["network_total_gb"] = row["net_in_gb"] + row["net_out_gb"]
-    row["network_balance_gb"] = row["net_in_gb"] - row["net_out_gb"]
-    row["utilization_pressure"] = (
-        row["cpu_util_pct"] + row["ram_util_pct"] + row["disk_util_pct"] + row["capacity_used_pct_prev_day"]
-    ) / 4
-
+    feature_columns = metadata.get("preprocessing", {}).get("feature_columns", INCIDENT_DEFAULT_FEATURE_COLUMNS) if metadata else INCIDENT_DEFAULT_FEATURE_COLUMNS
+    row = {column: _incident_feature_value(data, column, observed_date) for column in feature_columns}
     return pd.DataFrame([row])
 
 
@@ -599,7 +609,7 @@ def predict(payload: PredictionRequest) -> PredictionResponse:
     model = load_model()
     model_metadata = load_incident_metadata()
     features = _payload_to_features(payload)
-    feature_frame = build_feature_frame(features)
+    feature_frame = build_feature_frame(features, model_metadata)
     threshold = float(model_metadata.get("threshold", MODEL_THRESHOLD))
     probability = float(model.predict_proba(feature_frame)[0, 1])
     prediction = int(probability >= threshold)
@@ -753,6 +763,7 @@ def segmentation_multiplier(profile_name: str) -> float:
 
 def predict_prioritization(payload: PrioritizationRequest) -> PrioritizationResponse:
     incident_model = load_model()
+    incident_metadata = load_incident_metadata()
     anomaly_model = load_anomaly_model()
     anomaly_metadata = load_anomaly_metadata()
     segmentation_model = load_segmentation_model()
@@ -763,7 +774,7 @@ def predict_prioritization(payload: PrioritizationRequest) -> PrioritizationResp
     for raw_input in payload.inputs:
         features = IncidentFeatures(**raw_input)
         dumped = features.model_dump()
-        incident_frame = build_feature_frame(features)
+        incident_frame = build_feature_frame(features, incident_metadata)
         anomaly_frame = build_anomaly_feature_frame(features)
         segmentation_features = SegmentationFeatures(**{**dumped, "observation_count": raw_input.get("observation_count", 1)})
         segmentation_frame = build_segmentation_feature_frame(segmentation_features)

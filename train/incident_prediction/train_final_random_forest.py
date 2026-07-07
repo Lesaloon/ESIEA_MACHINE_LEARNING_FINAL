@@ -9,11 +9,12 @@ from pathlib import Path
 import joblib
 import matplotlib
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.dummy import DummyClassifier
 from sklearn.ensemble import GradientBoostingClassifier, RandomForestClassifier
-from sklearn.metrics import ConfusionMatrixDisplay, accuracy_score, classification_report, confusion_matrix, f1_score, precision_score, recall_score, roc_auc_score
+from sklearn.metrics import ConfusionMatrixDisplay, accuracy_score, average_precision_score, classification_report, confusion_matrix, f1_score, precision_recall_curve, precision_score, recall_score, roc_auc_score
 from sklearn.model_selection import RandomizedSearchCV, train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
@@ -143,6 +144,25 @@ def search_spaces() -> dict[str, dict[str, list[object]]]:
     }
 
 
+def best_threshold(y_true: pd.Series, y_score: np.ndarray) -> tuple[float, dict[str, float]]:
+    precision, recall, thresholds = precision_recall_curve(y_true, y_score)
+    if len(thresholds) == 0:
+        return 0.5, {"precision": 0.0, "recall": 0.0, "f1": 0.0}
+
+    f1_values = np.divide(
+        2 * precision[:-1] * recall[:-1],
+        precision[:-1] + recall[:-1],
+        out=np.zeros_like(thresholds, dtype=float),
+        where=(precision[:-1] + recall[:-1]) > 0,
+    )
+    best_index = int(np.nanargmax(f1_values))
+    return float(thresholds[best_index]), {
+        "precision": float(precision[best_index]),
+        "recall": float(recall[best_index]),
+        "f1": float(f1_values[best_index]),
+    }
+
+
 def save_confusion_matrix(y_true: pd.Series, y_pred: pd.Series, output_dir: Path) -> None:
     matrix = confusion_matrix(y_true, y_pred)
     fig, ax = plt.subplots(figsize=(6, 5))
@@ -164,6 +184,7 @@ def main() -> None:
         y,
         test_size=args.test_size,
         random_state=RANDOM_STATE,
+        stratify=y,
     )
     logger.info("Train shape: %s", X_train.shape)
     logger.info("Test shape: %s", X_test.shape)
@@ -182,7 +203,7 @@ def main() -> None:
                 param_distributions=param_spaces[model_name],
                 n_iter=args.n_iter,
                 cv=args.cv,
-                scoring="accuracy",
+                scoring="average_precision",
                 random_state=RANDOM_STATE,
                 n_jobs=-1,
                 verbose=2,
@@ -201,21 +222,38 @@ def main() -> None:
         y_pred = best_model.predict(X_test)
         result = {
             "accuracy": float(accuracy_score(y_test, y_pred)),
-            "precision": float(precision_score(y_test, y_pred, zero_division=0)),
-            "recall": float(recall_score(y_test, y_pred, zero_division=0)),
-            "f1": float(f1_score(y_test, y_pred, zero_division=0)),
+            "precision_at_default_threshold": float(precision_score(y_test, y_pred, zero_division=0)),
+            "recall_at_default_threshold": float(recall_score(y_test, y_pred, zero_division=0)),
+            "f1_at_default_threshold": float(f1_score(y_test, y_pred, zero_division=0)),
             "best_params": best_params,
-            "cv_best_accuracy": cv_best_accuracy,
+            "cv_best_average_precision": cv_best_accuracy,
             "classification_report": classification_report(y_test, y_pred, output_dict=True, zero_division=0),
         }
         if hasattr(best_model, "predict_proba"):
-            result["roc_auc"] = float(roc_auc_score(y_test, best_model.predict_proba(X_test)[:, 1]))
+            y_score = best_model.predict_proba(X_test)[:, 1]
+            threshold, threshold_metrics = best_threshold(y_test, y_score)
+            y_threshold_pred = (y_score >= threshold).astype(int)
+            result["average_precision"] = float(average_precision_score(y_test, y_score))
+            result["roc_auc"] = float(roc_auc_score(y_test, y_score))
+            result["best_threshold"] = threshold
+            result["precision"] = float(precision_score(y_test, y_threshold_pred, zero_division=0))
+            result["recall"] = float(recall_score(y_test, y_threshold_pred, zero_division=0))
+            result["f1"] = float(f1_score(y_test, y_threshold_pred, zero_division=0))
+            result["threshold_metrics"] = threshold_metrics
         results[model_name] = result
-        logger.info("%s accuracy: %.4f", model_name, result["accuracy"])
+        logger.info(
+            "%s AP: %.4f | ROC-AUC: %.4f | F1: %.4f | Threshold: %.4f",
+            model_name,
+            result.get("average_precision", 0.0),
+            result.get("roc_auc", 0.0),
+            result.get("f1", 0.0),
+            result.get("best_threshold", 0.5),
+        )
 
-    best_model_name = max(results, key=lambda name: results[name]["accuracy"])
+    best_model_name = max(results, key=lambda name: results[name].get("average_precision", -1.0))
     best_model = trained_models[best_model_name]
-    y_pred = best_model.predict(X_test)
+    selected_threshold = float(results[best_model_name].get("best_threshold", 0.5))
+    y_pred = (best_model.predict_proba(X_test)[:, 1] >= selected_threshold).astype(int)
     joblib.dump(best_model, output_dir / f"{best_model_name}.pkl")
     ARTIFACT_PATH.parent.mkdir(parents=True, exist_ok=True)
     METADATA_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -231,7 +269,7 @@ def main() -> None:
         "model_type": best_model.named_steps["model"].__class__.__name__,
         "problem": "binary classification",
         "target": TARGET,
-        "threshold": 0.5,
+        "threshold": selected_threshold,
         "data_source": str(args.data_path.relative_to(ROOT_DIR)),
         "test_size": args.test_size,
         "n_iter": args.n_iter,
@@ -241,6 +279,7 @@ def main() -> None:
         "positive_rate": float(y.mean()),
         "preprocessing": preprocessing,
         "best_model": best_model_name,
+        "selection_metric": "average_precision",
         "best_params": results[best_model_name]["best_params"],
         "metrics": results,
     }
