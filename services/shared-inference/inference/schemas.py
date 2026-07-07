@@ -82,13 +82,12 @@ class SupportForecastResponse(BaseModel):
 
 
 class SegmentationFeatures(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     server_id: str = "SAMPLE_SERVER"
     server_type: str
     region: str
     os_family: str
-    segment: str
-    country: str
-    support_plan: str
     cpu_cores: int
     ram_gb: int
     disk_tb: float
@@ -107,9 +106,6 @@ class SegmentationFeatures(BaseModel):
     power_usage_mw: float
     network_latency_ms: float
     capacity_used_pct: float
-    contract_months: int
-    tenure_days: int
-    monthly_spend_eur: float
     observation_count: int = 1
 
 

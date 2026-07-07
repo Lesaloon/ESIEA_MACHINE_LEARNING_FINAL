@@ -2,108 +2,102 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from datetime import datetime
 from pathlib import Path
 
 import joblib
 import pandas as pd
-from sklearn.cluster import KMeans
-from sklearn.compose import ColumnTransformer
-from sklearn.metrics import calinski_harabasz_score, davies_bouldin_score, silhouette_score
-from sklearn.mixture import GaussianMixture
-from sklearn.model_selection import train_test_split
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
-
 
 ROOT_DIR = Path(__file__).resolve().parents[2]
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
+
+from train.server_segmentation.train_final_gaussian_mixture import (
+    build_cluster_outputs,
+    build_server_feature_table,
+    clustering_metrics,
+    load_raw_data,
+    run_searches,
+    save_pca_plot,
+    setup_logger,
+    split_dataset,
+)
+
+
 EXPERIMENT_DIR = ROOT_DIR / "experiments" / "part3_server_segmentation"
-DEFAULT_DATA_PATH = ROOT_DIR / "data" / "raw" / "ml_training_dataset.csv"
-RANDOM_STATE = 42
-CATEGORICAL_COLUMNS = ["server_type", "region", "os_family", "segment", "country", "support_plan"]
+DEFAULT_SERVERS_PATH = ROOT_DIR / "data" / "raw" / "servers.csv"
+DEFAULT_USAGE_PATH = ROOT_DIR / "data" / "raw" / "daily_server_usage.csv"
+DEFAULT_INCIDENTS_PATH = ROOT_DIR / "data" / "raw" / "incidents.csv"
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Raw server segmentation experiment.")
-    parser.add_argument("--data-path", type=Path, default=DEFAULT_DATA_PATH)
-    parser.add_argument("--model", choices=["kmeans", "gaussian_mixture"], default="kmeans")
-    parser.add_argument("--clusters", type=int, default=3)
+    parser = argparse.ArgumentParser(description="Run raw-data server segmentation experiment.")
+    parser.add_argument("--servers-path", type=Path, default=DEFAULT_SERVERS_PATH)
+    parser.add_argument("--usage-path", type=Path, default=DEFAULT_USAGE_PATH)
+    parser.add_argument("--incidents-path", type=Path, default=DEFAULT_INCIDENTS_PATH)
+    parser.add_argument("--test-size", type=float, default=0.2)
+    parser.add_argument("--n-iter", type=int, default=8)
+    parser.add_argument("--cv-splits", type=int, default=3)
+    parser.add_argument("--n-jobs", type=int, default=-1)
     return parser.parse_args()
-
-
-def build_server_dataset(df: pd.DataFrame) -> pd.DataFrame:
-    aggregations = {
-        "cpu_util_pct": ["mean", "max", "std"],
-        "ram_util_pct": ["mean", "max", "std"],
-        "disk_util_pct": ["mean", "max", "std"],
-        "net_in_gb": ["mean", "sum"],
-        "net_out_gb": ["mean", "sum"],
-        "temperature_c": ["mean", "max", "std"],
-        "backup_success": ["mean", "min"],
-        "scheduled_maintenance": "mean",
-        "network_latency_ms": ["mean", "max"],
-        "capacity_used_pct": ["mean", "max"],
-        "support_tickets": "mean",
-        "cpu_cores": "first",
-        "ram_gb": "first",
-        "disk_tb": "first",
-        "age_days": "first",
-        "has_gpu": "first",
-        "is_managed": "first",
-        "contract_months": "first",
-        "tenure_days": "first",
-        "monthly_spend_eur": "first",
-    }
-    server_df = df.groupby("server_id").agg(aggregations)
-    server_df.columns = ["_".join(column).strip("_") for column in server_df.columns]
-    categorical = df.groupby("server_id")[CATEGORICAL_COLUMNS].agg(lambda values: values.mode().iloc[0])
-    server_df = server_df.merge(categorical, on="server_id", how="left").reset_index()
-    server_df["backup_failure_rate"] = 1 - server_df["backup_success_mean"]
-    server_df["utilization_pressure_mean"] = (
-        server_df["cpu_util_pct_mean"] + server_df["ram_util_pct_mean"] + server_df["disk_util_pct_mean"] + server_df["capacity_used_pct_mean"]
-    ) / 4
-    return server_df.fillna(0)
-
-
-def build_model(model_name: str, clusters: int):
-    if model_name == "gaussian_mixture":
-        return GaussianMixture(n_components=clusters, covariance_type="diag", random_state=RANDOM_STATE, n_init=5)
-    return KMeans(n_clusters=clusters, random_state=RANDOM_STATE, n_init=20)
 
 
 def main() -> None:
     args = parse_args()
-    df = build_server_dataset(pd.read_csv(args.data_path))
-    X = df.drop(columns=["server_id"])
-    numeric_features = X.select_dtypes(include="number").columns.tolist()
-    categorical_features = X.select_dtypes(include=["object", "string", "category"]).columns.tolist()
-    preprocessor = ColumnTransformer(
-        transformers=[
-            ("num", StandardScaler(), numeric_features),
-            ("cat", OneHotEncoder(handle_unknown="ignore", sparse_output=False), categorical_features),
-        ]
-    )
-    model = Pipeline(steps=[("preprocessor", preprocessor), ("model", build_model(args.model, args.clusters))])
-
-    print("Fitting the model...")
-    labels = model.fit_predict(X)
-    X_processed = model.named_steps["preprocessor"].transform(X)
-    metrics = {
-        "model": args.model,
-        "clusters": args.clusters,
-        "rows": int(len(df)),
-        "silhouette": float(silhouette_score(X_processed, labels)),
-        "davies_bouldin": float(davies_bouldin_score(X_processed, labels)),
-        "calinski_harabasz": float(calinski_harabasz_score(X_processed, labels)),
-    }
-    print("Silhouette:", metrics["silhouette"])
-    print("Davies-Bouldin:", metrics["davies_bouldin"])
-    print("Calinski-Harabasz:", metrics["calinski_harabasz"])
-
     run_dir = EXPERIMENT_DIR / "raw_runs" / datetime.now().strftime("%Y%m%d_%H%M%S")
-    run_dir.mkdir(parents=True, exist_ok=True)
-    joblib.dump(model, run_dir / f"raw_segmentation_{args.model}.pkl")
-    (run_dir / "metrics.json").write_text(json.dumps(metrics, indent=2), encoding="utf-8")
+    logger = setup_logger(run_dir)
+    logger.info("Raw server segmentation experiment started")
+    logger.info("Arguments: %s", vars(args))
+
+    servers, usage, incidents = load_raw_data(args.servers_path, args.usage_path, args.incidents_path, logger)
+    feature_df = build_server_feature_table(servers, usage, incidents, logger)
+    feature_df.to_csv(run_dir / "server_feature_table.csv", index=False)
+
+    train_df, test_df = split_dataset(feature_df, args.test_size, logger)
+    results, best_estimator, best_model_name, best_params = run_searches(
+        train_df.drop(columns=["server_id"]),
+        test_df.drop(columns=["server_id"]),
+        args,
+        run_dir,
+        logger,
+    )
+
+    metrics_df = pd.DataFrame(results).sort_values("test_silhouette", ascending=False)
+    metrics_df.to_csv(run_dir / "benchmark_metrics.csv", index=False)
+
+    full_pipeline = best_estimator
+    full_pipeline.fit(feature_df.drop(columns=["server_id"]), [0] * len(feature_df))
+    assignments, profiles = build_cluster_outputs(full_pipeline, feature_df)
+    assignments.to_csv(run_dir / "server_cluster_assignments.csv", index=False)
+    profiles.to_csv(run_dir / "cluster_profiles.csv", index=False)
+    save_pca_plot(feature_df, full_pipeline, run_dir)
+
+    model_path = run_dir / f"server_segmentation_{best_model_name}.pkl"
+    joblib.dump(full_pipeline, model_path)
+
+    summary = {
+        "problem_type": "unsupervised_server_segmentation",
+        "data_sources": {
+            "servers": str(args.servers_path.relative_to(ROOT_DIR)),
+            "daily_server_usage": str(args.usage_path.relative_to(ROOT_DIR)),
+            "incidents": str(args.incidents_path.relative_to(ROOT_DIR)),
+        },
+        "selection_metric": "test_silhouette",
+        "best_model": best_model_name,
+        "best_params": best_params,
+        "feature_rows": int(len(feature_df)),
+        "feature_columns": int(feature_df.shape[1] - 1),
+        "full_metrics": clustering_metrics(full_pipeline, feature_df.drop(columns=["server_id"])),
+        "model_path": str(model_path.relative_to(ROOT_DIR)),
+        "profiles_path": str((run_dir / "cluster_profiles.csv").relative_to(ROOT_DIR)),
+        "assignments_path": str((run_dir / "server_cluster_assignments.csv").relative_to(ROOT_DIR)),
+    }
+    (run_dir / "run_summary.json").write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    logger.info("Best model: %s", best_model_name)
+    logger.info("Saved model to %s", model_path.relative_to(ROOT_DIR))
+    logger.info("Raw server segmentation experiment finished")
 
 
 if __name__ == "__main__":

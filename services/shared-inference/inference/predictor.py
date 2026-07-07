@@ -68,7 +68,7 @@ SUPPORT_RAW_FEATURE_COLUMNS = [
     "days_since_start",
 ]
 
-SEGMENTATION_CATEGORICAL_COLUMNS = ["server_type", "region", "os_family", "segment", "country", "support_plan"]
+SEGMENTATION_CATEGORICAL_COLUMNS = ["server_type", "region", "os_family"]
 
 RAW_FEATURE_COLUMNS = [
     "server_type",
@@ -276,53 +276,120 @@ def build_segmentation_feature_frame(features: SegmentationFeatures) -> pd.DataF
     data = features.model_dump()
     observation_count = max(int(data["observation_count"]), 1)
 
-    row: dict[str, Any] = {}
-    aggregate_specs = {
-        "cpu_util_pct": ["mean", "max", "std"],
-        "ram_util_pct": ["mean", "max", "std"],
-        "disk_util_pct": ["mean", "max", "std"],
-        "net_in_gb": ["mean", "max", "sum"],
-        "net_out_gb": ["mean", "max", "sum"],
-        "temperature_c": ["mean", "max", "std"],
-        "network_latency_ms": ["mean", "max", "std"],
-        "capacity_used_pct": ["mean", "max", "std"],
-    }
-    for column, stats in aggregate_specs.items():
-        for stat in stats:
-            if stat == "std":
-                row[f"{column}_{stat}"] = 0
-            elif stat == "sum":
-                row[f"{column}_{stat}"] = data[column] * observation_count
-            else:
-                row[f"{column}_{stat}"] = data[column]
+    def value(key: str, default: Any) -> Any:
+        current = data.get(key, default)
+        return default if current is None else current
 
-    row["backup_success_mean"] = data["backup_success"]
-    row["backup_success_min"] = data["backup_success"]
-    row["scheduled_maintenance_mean"] = data["scheduled_maintenance"]
-    row["avg_rack_temperature_c_mean"] = data["avg_rack_temperature_c"]
-    row["avg_rack_temperature_c_max"] = data["avg_rack_temperature_c"]
-    row["power_usage_mw_mean"] = data["power_usage_mw"]
-    row["power_usage_mw_max"] = data["power_usage_mw"]
-    row["cpu_cores_first"] = data["cpu_cores"]
-    row["ram_gb_first"] = data["ram_gb"]
-    row["disk_tb_first"] = data["disk_tb"]
-    row["age_days_first"] = data["age_days"]
-    row["has_gpu_first"] = data["has_gpu"]
-    row["is_managed_first"] = data["is_managed"]
-    row["contract_months_first"] = data["contract_months"]
-    row["tenure_days_first"] = data["tenure_days"]
-    row["monthly_spend_eur_first"] = data["monthly_spend_eur"]
+    def aggregated(base: str, suffix: str, default: float) -> float:
+        current = value(f"{base}_{suffix}", None)
+        if current is not None:
+            return float(current)
+        return float(default)
+
+    row: dict[str, Any] = {}
+    cpu_util_pct = float(value("cpu_util_pct", 0.0))
+    ram_util_pct = float(value("ram_util_pct", 0.0))
+    disk_util_pct = float(value("disk_util_pct", 0.0))
+    net_in_gb = float(value("net_in_gb", 0.0))
+    net_out_gb = float(value("net_out_gb", 0.0))
+    temperature_c = float(value("temperature_c", 0.0))
+    backup_success = float(value("backup_success", 1.0))
+    utilization_pressure = float(value("utilization_pressure", (cpu_util_pct + ram_util_pct + disk_util_pct) / 3))
+    thermal_cpu_pressure = float(value("thermal_cpu_pressure", temperature_c * cpu_util_pct / 100))
+    network_total_gb = float(value("network_total_gb", net_in_gb + net_out_gb))
+
+    row["cpu_cores"] = int(value("cpu_cores", 0))
+    row["ram_gb"] = int(value("ram_gb", 0))
+    row["disk_tb"] = float(value("disk_tb", 0.0))
+    row["age_days"] = int(value("age_days", 0))
+    row["has_gpu"] = int(value("has_gpu", 0))
+    row["is_managed"] = int(value("is_managed", 0))
+
+    row["cpu_util_pct_mean"] = aggregated("cpu_util_pct", "mean", cpu_util_pct)
+    row["cpu_util_pct_max"] = aggregated("cpu_util_pct", "max", cpu_util_pct)
+    row["cpu_util_pct_std"] = aggregated("cpu_util_pct", "std", 0.0)
+    row["cpu_util_pct_p90"] = aggregated("cpu_util_pct", "p90", cpu_util_pct)
+    row["cpu_util_pct_recent7_mean"] = aggregated("cpu_util_pct", "recent7_mean", cpu_util_pct)
+
+    row["ram_util_pct_mean"] = aggregated("ram_util_pct", "mean", ram_util_pct)
+    row["ram_util_pct_max"] = aggregated("ram_util_pct", "max", ram_util_pct)
+    row["ram_util_pct_std"] = aggregated("ram_util_pct", "std", 0.0)
+    row["ram_util_pct_p90"] = aggregated("ram_util_pct", "p90", ram_util_pct)
+    row["ram_util_pct_recent7_mean"] = aggregated("ram_util_pct", "recent7_mean", ram_util_pct)
+
+    row["disk_util_pct_mean"] = aggregated("disk_util_pct", "mean", disk_util_pct)
+    row["disk_util_pct_max"] = aggregated("disk_util_pct", "max", disk_util_pct)
+    row["disk_util_pct_std"] = aggregated("disk_util_pct", "std", 0.0)
+    row["disk_util_pct_p90"] = aggregated("disk_util_pct", "p90", disk_util_pct)
+    row["disk_util_pct_recent7_mean"] = aggregated("disk_util_pct", "recent7_mean", disk_util_pct)
+
+    row["net_in_gb_mean"] = aggregated("net_in_gb", "mean", net_in_gb)
+    row["net_in_gb_sum"] = aggregated("net_in_gb", "sum", net_in_gb * observation_count)
+    row["net_in_gb_p90"] = aggregated("net_in_gb", "p90", net_in_gb)
+    row["net_in_gb_recent7_mean"] = aggregated("net_in_gb", "recent7_mean", net_in_gb)
+
+    row["net_out_gb_mean"] = aggregated("net_out_gb", "mean", net_out_gb)
+    row["net_out_gb_sum"] = aggregated("net_out_gb", "sum", net_out_gb * observation_count)
+    row["net_out_gb_p90"] = aggregated("net_out_gb", "p90", net_out_gb)
+    row["net_out_gb_recent7_mean"] = aggregated("net_out_gb", "recent7_mean", net_out_gb)
+
+    row["temperature_c_mean"] = aggregated("temperature_c", "mean", temperature_c)
+    row["temperature_c_max"] = aggregated("temperature_c", "max", temperature_c)
+    row["temperature_c_std"] = aggregated("temperature_c", "std", 0.0)
+    row["temperature_c_p90"] = aggregated("temperature_c", "p90", temperature_c)
+    row["temperature_c_recent7_mean"] = aggregated("temperature_c", "recent7_mean", temperature_c)
+
+    row["backup_success_mean"] = aggregated("backup_success", "mean", backup_success)
+    row["backup_success_min"] = aggregated("backup_success", "min", backup_success)
+    row["utilization_pressure_mean"] = aggregated("utilization_pressure", "mean", utilization_pressure)
+    row["utilization_pressure_p90"] = aggregated("utilization_pressure", "p90", utilization_pressure)
+    row["utilization_pressure_recent7_mean"] = aggregated("utilization_pressure", "recent7_mean", utilization_pressure)
+    row["thermal_cpu_pressure_mean"] = aggregated("thermal_cpu_pressure", "mean", thermal_cpu_pressure)
+    row["thermal_cpu_pressure_max"] = aggregated("thermal_cpu_pressure", "max", thermal_cpu_pressure)
+    row["thermal_cpu_pressure_p90"] = aggregated("thermal_cpu_pressure", "p90", thermal_cpu_pressure)
+    row["thermal_cpu_pressure_recent7_mean"] = aggregated("thermal_cpu_pressure", "recent7_mean", thermal_cpu_pressure)
+    row["network_total_gb_mean"] = aggregated("network_total_gb", "mean", network_total_gb)
+    row["network_total_gb_sum"] = aggregated("network_total_gb", "sum", network_total_gb * observation_count)
+    row["network_total_gb_p90"] = aggregated("network_total_gb", "p90", network_total_gb)
+    row["network_total_gb_recent7_mean"] = aggregated("network_total_gb", "recent7_mean", network_total_gb)
+
     row["observation_count"] = observation_count
 
     for column in SEGMENTATION_CATEGORICAL_COLUMNS:
         row[column] = data[column]
 
-    row["utilization_pressure_mean"] = (
-        row["cpu_util_pct_mean"] + row["ram_util_pct_mean"] + row["disk_util_pct_mean"] + row["capacity_used_pct_mean"]
-    ) / 4
-    row["network_total_gb_sum"] = row["net_in_gb_sum"] + row["net_out_gb_sum"]
-    row["thermal_cpu_pressure"] = row["temperature_c_mean"] * row["cpu_util_pct_mean"] / 100
-    row["backup_failure_rate"] = 1 - row["backup_success_mean"]
+    row["high_cpu_day_rate"] = float(value("high_cpu_day_rate", float(cpu_util_pct >= 85)))
+    row["high_ram_day_rate"] = float(value("high_ram_day_rate", float(ram_util_pct >= 85)))
+    row["high_temperature_day_rate"] = float(value("high_temperature_day_rate", float(temperature_c >= 70)))
+    row["backup_failure_rate"] = float(value("backup_failure_rate", 1 - row["backup_success_mean"]))
+
+    row["incident_count"] = float(value("incident_count", 0.0))
+    row["incident_day_count"] = float(value("incident_day_count", row["incident_count"]))
+    row["incident_duration_minutes_mean"] = float(value("incident_duration_minutes_mean", 0.0))
+    row["incident_duration_minutes_max"] = float(value("incident_duration_minutes_max", row["incident_duration_minutes_mean"]))
+    row["incident_duration_minutes_sum"] = float(value("incident_duration_minutes_sum", row["incident_count"] * row["incident_duration_minutes_mean"]))
+    row["customer_visible_rate"] = float(value("customer_visible_rate", 0.0))
+    row["sla_breach_rate"] = float(value("sla_breach_rate", 0.0))
+    row["root_cause_known_rate"] = float(value("root_cause_known_rate", 0.0))
+    row["critical_incident_count"] = float(value("critical_incident_count", 0.0))
+    row["high_severity_incident_rate"] = float(value("high_severity_incident_rate", 0.0))
+    row["disk_incident_count"] = float(value("disk_incident_count", 0.0))
+    row["network_incident_count"] = float(value("network_incident_count", 0.0))
+    row["hypervisor_incident_count"] = float(value("hypervisor_incident_count", 0.0))
+    row["recent30_incident_count"] = float(value("recent30_incident_count", row["incident_count"]))
+    row["recent30_high_severity_count"] = float(value("recent30_high_severity_count", 0.0))
+    row["days_since_last_incident"] = float(value("days_since_last_incident", max(observation_count, 30)))
+    row["incident_rate"] = float(value("incident_rate", row["incident_count"] / observation_count))
+    row["recent30_incident_rate"] = float(
+        value("recent30_incident_rate", row["recent30_incident_count"] / max(min(observation_count, 30), 1))
+    )
+    row["recent_usage_shift"] = float(value("recent_usage_shift", row["cpu_util_pct_recent7_mean"] - row["cpu_util_pct_mean"]))
+    row["recent_temperature_shift"] = float(
+        value("recent_temperature_shift", row["temperature_c_recent7_mean"] - row["temperature_c_mean"])
+    )
+    row["recent_network_shift"] = float(
+        value("recent_network_shift", row["network_total_gb_recent7_mean"] - row["network_total_gb_mean"])
+    )
     return pd.DataFrame([row])
 
 

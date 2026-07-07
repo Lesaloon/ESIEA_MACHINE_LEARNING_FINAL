@@ -47,6 +47,15 @@ Les resultats affiches par le frontend incluent directement une explication loca
 
 Le rapport Partie 7 est disponible dans `reports/interpretability/INTERPRETABILITY_REPORT.md`.
 
+## Etat actuel des modeles
+
+- incident : classification supervisee avec pipeline scikit-learn et selection par `average_precision`.
+- support : regression sur les metriques region.
+- segmentation : segmentation reconstruite le `2026-07-07` directement depuis `servers.csv`, `daily_server_usage.csv` et `incidents.csv`, sans variables client.
+- anomalie : detection non supervisee sur signaux de surcharge.
+
+Le modele de segmentation actuellement deploye est un `KMeans` retenu apres `RandomizedSearchCV` sur preprocessing + reduction optionnelle (`PCA`) + hyperparametres de clustering. Les metadonnees correspondantes sont dans `models/metadata/server_segmentation_gaussian_mixture.json`.
+
 ## Architecture
 
 Le schema Mermaid de l'architecture de production est disponible dans `reports/architecture/ARCHITECTURE.md`.
