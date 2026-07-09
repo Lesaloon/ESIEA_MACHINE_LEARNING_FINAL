@@ -6,42 +6,31 @@ This directory contains the final training script for part 1: predicting `incide
 
 - problem: binary classification
 - target: `incident_next_7d`
-- current retained model: `RandomForestClassifier`
-- training selection metric: `average_precision`
+- current retained model: `GradientBoostingClassifier`
+- training selection metric: `accuracy`
 - serving decision rule: predict `1` when `probability >= threshold`
 
-Current saved threshold from `models/metadata/incident_random_forest_model.json`:
+Current saved threshold from `models/metadata/incident_gradient_boosting_model.json`:
 
 ```json
-0.05344621745357038
+0.043730486355562474
 ```
 
 This threshold is intentionally much lower than `0.5` because incidents are rare in the dataset.
 
-## Why We Do Not Optimize Accuracy
+## Current Selection Logic
 
-The positive class rate is only about `2.2%`.
+The final deployed model is `GradientBoostingClassifier`, aligned with the notebook-style benchmark based on `accuracy`.
 
-That means a model can get very high accuracy by predicting almost everything as `0`.
-That is exactly what happened with the accuracy-based version: it looked strong on paper, but it missed almost all real incidents.
+The dataset remains highly imbalanced, so the project still persists additional metrics beyond `accuracy`:
 
-For that reason, the final training now uses:
-
-- `average_precision` to choose the model during search
-- a precision-recall threshold search to choose the serving cutoff
-
-This keeps much more recall on the minority class.
+- `precision`, `recall` and `F1` after thresholding;
+- `average_precision` and `ROC-AUC` on probabilities;
+- a saved threshold chosen on the test fold to make the classifier usable for prioritization.
 
 ## Current Metrics
 
-For the retained random forest model:
-
-- average precision: `0.1945`
-- ROC-AUC: `0.9464`
-- threshold: `0.0534`
-- precision at threshold: `0.2026`
-- recall at threshold: `0.8252`
-- F1 at threshold: `0.3253`
+For the retained gradient boosting model, see `models/metadata/incident_gradient_boosting_model.json` after training.
 
 Important: the probability is not the prediction. The prediction is produced after applying the saved threshold.
 
@@ -52,18 +41,18 @@ Because the service does not use `0.5` as the decision boundary.
 It uses the saved threshold:
 
 ```text
-0.05344621745357038
+0.043730486355562474
 ```
 
 So:
 
 - probability `0.20` means `20%`
-- `0.20 > 0.0534`
+- `0.20 > 0.0437`
 - therefore prediction = `1`
 
 This is expected behavior, not a bug.
 
-The reason is business and class imbalance driven: with a `0.5` threshold, the model almost never predicts incidents. With a lower threshold, it catches far more real incidents.
+The reason is business and class imbalance driven: with a `0.5` threshold, the model can miss too many incidents. With a lower threshold, it catches more risky cases.
 
 ## Why Probabilities Rarely Go Above 25%
 
@@ -72,7 +61,7 @@ This is also expected for this dataset.
 Main reasons:
 
 - incidents are rare, so the model's prior belief stays low
-- random forests often produce conservative probabilities when the positive class is sparse
+- gradient boosting can still produce conservative probabilities when the positive class is sparse
 - many rows may be risky relative to the baseline without looking like near-certain incidents
 - the model was selected to rank risky cases well, not to emit very large probabilities
 
@@ -130,7 +119,7 @@ That is important because it keeps preprocessing and model together:
 
 - one-hot encoding for categorical fields
 - scaling for selected numeric fields
-- the trained random forest itself
+- the trained gradient boosting model itself
 
 The API sends raw incident fields, and the service builds exactly the feature frame expected by the saved pipeline using the metadata file.
 
@@ -139,7 +128,7 @@ This avoids training/serving skew.
 ## Run Training
 
 ```bash
-.venv/bin/python train/incident_prediction/train_final_random_forest.py
+.venv/bin/python train/incident_prediction/train_final_gradient_boosting.py
 ```
 
 Outputs are written to:
@@ -151,6 +140,6 @@ train/incident_prediction/runs/<timestamp>/
 The persisted serving files are:
 
 ```bash
-models/artifacts/incident_random_forest_model.pkl
-models/metadata/incident_random_forest_model.json
+models/artifacts/incident_gradient_boosting_model.pkl
+models/metadata/incident_gradient_boosting_model.json
 ```

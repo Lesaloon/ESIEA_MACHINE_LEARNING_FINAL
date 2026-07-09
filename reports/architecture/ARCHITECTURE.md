@@ -12,18 +12,18 @@ flowchart LR
     end
 
     subgraph private[Reseau Docker interne ml-network]
-        incident[Incident inference API<br/>Service: incident-inference-service<br/>Modele: RandomForestClassifier]
+        incident[Incident inference API<br/>Service: incident-inference-service<br/>Modele: GradientBoostingClassifier]
         support[Support forecast API<br/>Service: support-inference-service<br/>Modele: ExtraTreesRegressor]
-        segmentation[Segmentation inference API<br/>Service: segmentation-inference-service<br/>Modele: GaussianMixture]
+        segmentation[Segmentation inference API<br/>Service: segmentation-inference-service<br/>Modele: KMeans]
         anomaly[Anomaly inference API<br/>Service: anomaly-inference-service<br/>Modele: LocalOutlierFactor]
         storage[Model storage<br/>Service: model-storage]
     end
 
     subgraph artifacts[Volumes et artefacts]
         models[(./models<br/>artifacts + metadata)]
-        incidentModel[incident_random_forest_model.pkl]
+        incidentModel[incident_gradient_boosting_model.pkl]
         supportModel[support_extra_trees_model.pkl]
-        segmentationModel[server_segmentation_gaussian_mixture.pkl]
+        segmentationModel[server_segmentation_kmeans.pkl]
         anomalyModel[anomaly_local_outlier_factor.pkl]
     end
 

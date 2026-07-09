@@ -32,8 +32,8 @@ matplotlib.use("Agg")
 ROOT_DIR = Path(__file__).resolve().parents[2]
 RAW_DIR = ROOT_DIR / "data" / "raw"
 OUTPUT_ROOT = ROOT_DIR / "train" / "server_segmentation" / "runs"
-ARTIFACT_PATH = ROOT_DIR / "models" / "artifacts" / "server_segmentation_gaussian_mixture.pkl"
-METADATA_PATH = ROOT_DIR / "models" / "metadata" / "server_segmentation_gaussian_mixture.json"
+ARTIFACT_PATH = ROOT_DIR / "models" / "artifacts" / "server_segmentation_kmeans.pkl"
+METADATA_PATH = ROOT_DIR / "models" / "metadata" / "server_segmentation_kmeans.json"
 RANDOM_STATE = 42
 
 SERVERS_PATH = RAW_DIR / "servers.csv"

@@ -40,21 +40,23 @@ Le frontend Nginx proxifie les appels API vers le gateway. Le gateway appelle le
 
 Les resultats affiches par le frontend incluent directement une explication locale:
 
-- incident : SHAP sur le `RandomForestClassifier` ;
+- incident : SHAP sur le `GradientBoostingClassifier` ;
 - support : SHAP sur le `ExtraTreesRegressor` ;
 - segmentation : interpretation par profil de cluster ;
 - anomalie : perturbation locale vers les valeurs normales de reference.
 
 Le rapport Partie 7 est disponible dans `reports/interpretability/INTERPRETABILITY_REPORT.md`.
 
+Le rapport de qualite des modeles est disponible dans `reports/model_quality/MODEL_QUALITY_REPORT.md`.
+
 ## Etat actuel des modeles
 
-- incident : classification supervisee avec pipeline scikit-learn et selection par `average_precision`.
+- incident : classification supervisee avec pipeline scikit-learn et selection finale sur `accuracy`, avec suivi de `precision`, `recall`, `average_precision` et seuil de decision optimise.
 - support : regression sur les metriques region.
 - segmentation : segmentation reconstruite le `2026-07-07` directement depuis `servers.csv`, `daily_server_usage.csv` et `incidents.csv`, sans variables client.
 - anomalie : detection non supervisee sur signaux de surcharge.
 
-Le modele de segmentation actuellement deploye est un `KMeans` retenu apres `RandomizedSearchCV` sur preprocessing + reduction optionnelle (`PCA`) + hyperparametres de clustering. Les metadonnees correspondantes sont dans `models/metadata/server_segmentation_gaussian_mixture.json`.
+Le modele de segmentation actuellement deploye est un `KMeans` retenu apres `RandomizedSearchCV` sur preprocessing + reduction optionnelle (`PCA`) + hyperparametres de clustering. Les metadonnees correspondantes sont dans `models/metadata/server_segmentation_kmeans.json`.
 
 ## Architecture
 

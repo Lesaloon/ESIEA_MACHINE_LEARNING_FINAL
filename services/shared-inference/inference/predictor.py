@@ -690,7 +690,7 @@ def predict(payload: PredictionRequest) -> PredictionResponse:
         human_explanation=incident_human_explanation(top_explanations, probability),
         metadata={
             "model_loaded": True,
-            "model_type": model_metadata.get("model_type", "RandomForestClassifier"),
+            "model_type": model_metadata.get("model_type", "GradientBoostingClassifier"),
             "explanation_method": top_explanations[0].get("method") if top_explanations else "none",
             "threshold": threshold,
             "server_id": features.server_id,
@@ -758,7 +758,7 @@ def predict_segmentation(payload: PredictionRequest) -> SegmentationResponse:
         human_explanation=human_explanation,
         metadata={
             "model_loaded": True,
-            "model_type": metadata.get("model_type", "GaussianMixture"),
+            "model_type": metadata.get("model_type", "KMeans"),
             "explanation_method": "cluster_profile",
             "n_clusters": metadata.get("n_clusters"),
             "silhouette": metadata.get("silhouette"),
@@ -890,6 +890,6 @@ def predict_prioritization(payload: PrioritizationRequest) -> PrioritizationResp
             "input_count": len(payload.inputs),
             "returned_count": len(recommendations),
             "uses_models": ["incident_random_forest"],
-            "context_models": ["anomaly_local_outlier_factor", "server_segmentation_gaussian_mixture"],
+            "context_models": ["anomaly_local_outlier_factor", "server_segmentation_kmeans"],
         },
     )

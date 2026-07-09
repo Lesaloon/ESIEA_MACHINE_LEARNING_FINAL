@@ -6,12 +6,12 @@ from pathlib import Path
 import joblib
 
 
-CONTAINER_INCIDENT_MODEL_PATH = Path("/models/artifacts/incident_random_forest_model.pkl")
-CONTAINER_INCIDENT_METADATA_PATH = Path("/models/metadata/incident_random_forest_model.json")
+CONTAINER_INCIDENT_MODEL_PATH = Path("/models/artifacts/incident_gradient_boosting_model.pkl")
+CONTAINER_INCIDENT_METADATA_PATH = Path("/models/metadata/incident_gradient_boosting_model.json")
 CONTAINER_SUPPORT_MODEL_PATH = Path("/models/artifacts/support_extra_trees_model.pkl")
 CONTAINER_SUPPORT_METADATA_PATH = Path("/models/metadata/support_extra_trees_model.json")
-CONTAINER_SEGMENTATION_MODEL_PATH = Path("/models/artifacts/server_segmentation_gaussian_mixture.pkl")
-CONTAINER_SEGMENTATION_METADATA_PATH = Path("/models/metadata/server_segmentation_gaussian_mixture.json")
+CONTAINER_SEGMENTATION_MODEL_PATH = Path("/models/artifacts/server_segmentation_kmeans.pkl")
+CONTAINER_SEGMENTATION_METADATA_PATH = Path("/models/metadata/server_segmentation_kmeans.json")
 CONTAINER_ANOMALY_MODEL_PATH = Path("/models/artifacts/anomaly_local_outlier_factor.pkl")
 CONTAINER_ANOMALY_METADATA_PATH = Path("/models/metadata/anomaly_local_outlier_factor.json")
 
@@ -23,7 +23,7 @@ def resolve_incident_model_path() -> Path:
         return CONTAINER_INCIDENT_MODEL_PATH
     current_path = Path(__file__).resolve()
     if len(current_path.parents) > 3:
-        return current_path.parents[3] / "models" / "artifacts" / "incident_random_forest_model.pkl"
+        return current_path.parents[3] / "models" / "artifacts" / "incident_gradient_boosting_model.pkl"
     return CONTAINER_INCIDENT_MODEL_PATH
 
 
@@ -34,7 +34,7 @@ def resolve_incident_metadata_path() -> Path:
         return CONTAINER_INCIDENT_METADATA_PATH
     current_path = Path(__file__).resolve()
     if len(current_path.parents) > 3:
-        return current_path.parents[3] / "models" / "metadata" / "incident_random_forest_model.json"
+        return current_path.parents[3] / "models" / "metadata" / "incident_gradient_boosting_model.json"
     return CONTAINER_INCIDENT_METADATA_PATH
 
 
@@ -67,7 +67,7 @@ def resolve_segmentation_model_path() -> Path:
         return CONTAINER_SEGMENTATION_MODEL_PATH
     current_path = Path(__file__).resolve()
     if len(current_path.parents) > 3:
-        return current_path.parents[3] / "models" / "artifacts" / "server_segmentation_gaussian_mixture.pkl"
+        return current_path.parents[3] / "models" / "artifacts" / "server_segmentation_kmeans.pkl"
     return CONTAINER_SEGMENTATION_MODEL_PATH
 
 
@@ -78,7 +78,7 @@ def resolve_segmentation_metadata_path() -> Path:
         return CONTAINER_SEGMENTATION_METADATA_PATH
     current_path = Path(__file__).resolve()
     if len(current_path.parents) > 3:
-        return current_path.parents[3] / "models" / "metadata" / "server_segmentation_gaussian_mixture.json"
+        return current_path.parents[3] / "models" / "metadata" / "server_segmentation_kmeans.json"
     return CONTAINER_SEGMENTATION_METADATA_PATH
 
 

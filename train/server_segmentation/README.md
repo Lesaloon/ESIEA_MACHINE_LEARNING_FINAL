@@ -22,8 +22,8 @@ Commande :
 
 Sorties principales :
 
-- `models/artifacts/server_segmentation_gaussian_mixture.pkl`
-- `models/metadata/server_segmentation_gaussian_mixture.json`
+- `models/artifacts/server_segmentation_kmeans.pkl`
+- `models/metadata/server_segmentation_kmeans.json`
 - `train/server_segmentation/runs/<timestamp>/`
 
 Run de reference actuel : `train/server_segmentation/runs/20260707_224440/`

@@ -6,9 +6,9 @@ Ce projet fournit maintenant une explication directement avec chaque resultat de
 
 | Modele | Type | Methode d'explication | Justification |
 | --- | --- | --- | --- |
-| Incident | `RandomForestClassifier` | SHAP local, `TreeExplainer` | Modele d'arbres compatible avec SHAP. Les valeurs SHAP indiquent les variables qui augmentent ou diminuent la probabilite d'incident. |
+| Incident | `GradientBoostingClassifier` | SHAP local, `TreeExplainer` | Modele d'arbres compatible avec SHAP. Les valeurs SHAP indiquent les variables qui augmentent ou diminuent la probabilite d'incident. |
 | Support | `ExtraTreesRegressor` | SHAP local, `TreeExplainer` | Modele d'arbres compatible avec SHAP. Les valeurs SHAP indiquent les variables qui augmentent ou diminuent la prevision de tickets. |
-| Segmentation | `GaussianMixture` | Profil de cluster | SHAP n'est pas adapte naturellement a ce clustering non supervise. L'interpretation repose sur le profil appris du cluster et son facteur distinctif. |
+| Segmentation | `KMeans` | Profil de cluster | SHAP n'est pas adapte naturellement a ce clustering non supervise. L'interpretation repose sur le profil appris du cluster et son facteur distinctif. |
 | Anomalie | `LocalOutlierFactor` | Perturbation locale vers valeurs normales | SHAP n'est pas naturellement adapte a LOF. L'explication mesure comment le score d'anomalie baisse quand une variable est remplacee par sa reference normale. |
 
 ## Explications locales dans le frontend
@@ -24,7 +24,7 @@ Pour les modeles incident et support, les impacts positifs augmentent la predict
 
 ## Incident
 
-Le modele incident est un `RandomForestClassifier`. Pour chaque prediction, le service calcule les valeurs SHAP sur la ligne demandee apres preprocessing et selection de variables.
+Le modele incident est un `GradientBoostingClassifier`. Pour chaque prediction, le service calcule les valeurs SHAP sur la ligne demandee apres preprocessing et selection de variables.
 
 Interpretation:
 
@@ -46,7 +46,7 @@ Interpretation:
 
 ## Segmentation
 
-Le modele de segmentation est un `GaussianMixture`. Comme il s'agit d'un modele non supervise, l'explication repose sur les profils de clusters sauvegardes dans `models/metadata/server_segmentation_gaussian_mixture.json`.
+Le modele de segmentation est un `KMeans`. Comme il s'agit d'un modele non supervise, l'explication repose sur les profils de clusters sauvegardes dans `models/metadata/server_segmentation_kmeans.json`.
 
 Le frontend affiche:
 
